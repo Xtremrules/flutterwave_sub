@@ -425,6 +425,17 @@ namespace flutterwave_sub.Controllers
             ViewBag.managerid = new SelectList(manager, "ID", "Name");
         }
 
+        void PopulatePlanInterval()
+        {
+            List<SelectListItem> interval = new List<SelectListItem>();
+            interval.Add(new SelectListItem { Text = "daily", Value = "daily" });
+            interval.Add(new SelectListItem { Text = "weekly", Value = "weekly" });
+            interval.Add(new SelectListItem { Text = "monthly", Value = "monthly" });
+            interval.Add(new SelectListItem { Text = "quarterly", Value = "quarterly" });
+            interval.Add(new SelectListItem { Text = "yearly", Value = "yearly" });
+            ViewBag.Interval = new SelectList(interval, "Value", "Text");
+        }
+
         #region Not Needed
         //
         // GET: /Account/VerifyCode
