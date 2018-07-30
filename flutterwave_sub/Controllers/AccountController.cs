@@ -2,6 +2,7 @@
 using System.Globalization;
 using System.Linq;
 using System.Security.Claims;
+using System.Data.Entity;
 using System.Threading.Tasks;
 using System.Web;
 using System.Web.Mvc;
@@ -18,6 +19,8 @@ namespace flutterwave_sub.Controllers
         private ApplicationSignInManager _signInManager;
         private ApplicationUserManager _userManager;
         private ApplicationRoleManager _roleManager;
+
+        private ApplicationDbContext db = new ApplicationDbContext();
 
         public AccountController()
         {
@@ -36,9 +39,9 @@ namespace flutterwave_sub.Controllers
             {
                 return _signInManager ?? HttpContext.GetOwinContext().Get<ApplicationSignInManager>();
             }
-            private set 
-            { 
-                _signInManager = value; 
+            private set
+            {
+                _signInManager = value;
             }
         }
 
@@ -134,7 +137,7 @@ namespace flutterwave_sub.Controllers
             // If a user enters incorrect codes for a specified amount of time then the user account 
             // will be locked out for a specified amount of time. 
             // You can configure the account lockout settings in IdentityConfig
-            var result = await SignInManager.TwoFactorSignInAsync(model.Provider, model.Code, isPersistent:  model.RememberMe, rememberBrowser: model.RememberBrowser);
+            var result = await SignInManager.TwoFactorSignInAsync(model.Provider, model.Code, isPersistent: model.RememberMe, rememberBrowser: model.RememberBrowser);
             switch (result)
             {
                 case SignInStatus.Success:
@@ -151,8 +154,9 @@ namespace flutterwave_sub.Controllers
         //
         // GET: /Account/Register
         [AllowAnonymous]
-        public ActionResult Register()
+        public async Task<ActionResult> RegisterAsync()
         {
+            await PopulateManagerIdAsync();
             return View();
         }
 
@@ -165,12 +169,115 @@ namespace flutterwave_sub.Controllers
         {
             if (ModelState.IsValid)
             {
-                var user = new ApplicationUser { UserName = model.Email, Email = model.Email };
+                var user = new ApplicationUser
+                {
+                    UserName = model.Email,
+                    Email = model.Email,
+                    firstname = model.firstname,
+                    lastname = model.lastname,
+                    PhoneNumber = model.Number,
+                };
                 var result = await UserManager.CreateAsync(user, model.Password);
                 if (result.Succeeded)
                 {
-                    await SignInManager.SignInAsync(user, isPersistent:false, rememberBrowser:false);
-                    
+                    if (!await RoleManager.RoleExistsAsync("tenats"))
+                    {
+                        TempData["error"] = "error occured, contact the admin";
+                        await PopulateManagerIdAsync();
+                        return View(model);
+                    }
+                    else
+                    {
+                        user = await UserManager.FindByEmailAsync(model.Email);
+                        var addToRole = await UserManager.AddToRoleAsync(user.Id, "tenats");
+                        if (!addToRole.Succeeded)
+                        {
+                            TempData["error"] = "error occured";
+                            await PopulateManagerIdAsync();
+                            return View(model);
+                        }
+                        else
+                        {
+                            var sub = new Sub
+                            {
+                                Managerid = model.managerid,
+                                ApplicationUserid = user.Id,
+                            };
+                            try
+                            {
+                                db.Subs.Add(sub);
+                                await db.SaveChangesAsync();
+                            }
+                            catch (Exception ex)
+                            {
+                                throw;
+                            }
+                            await SignInManager.SignInAsync(user, isPersistent: false, rememberBrowser: false);
+                        }
+                    }
+
+                    // For more information on how to enable account confirmation and password reset please visit https://go.microsoft.com/fwlink/?LinkID=320771
+                    // Send an email with this link
+                    // string code = await UserManager.GenerateEmailConfirmationTokenAsync(user.Id);
+                    // var callbackUrl = Url.Action("ConfirmEmail", "Account", new { userId = user.Id, code = code }, protocol: Request.Url.Scheme);
+                    // await UserManager.SendEmailAsync(user.Id, "Confirm your account", "Please confirm your account by clicking <a href=\"" + callbackUrl + "\">here</a>");
+
+                    return RedirectToAction("Index", "Home");
+                }
+                AddErrors(result);
+            }
+
+            // If we got this far, something failed, redisplay form
+            await PopulateManagerIdAsync();
+            return View(model);
+        }
+
+        [AllowAnonymous]
+        public ActionResult RegisterM()
+        {
+            return View();
+        }
+
+        //
+        // POST: /Account/Register
+        [HttpPost]
+        [AllowAnonymous]
+        [ValidateAntiForgeryToken]
+        public async Task<ActionResult> RegisterM(ManagerRegisterModel model)
+        {
+            if (ModelState.IsValid)
+            {
+                var user = new ApplicationUser
+                {
+                    UserName = model.Email,
+                    Email = model.Email,
+                    firstname = model.firstname,
+                    lastname = model.lastname,
+                    PhoneNumber = model.Number,
+                };
+                var result = await UserManager.CreateAsync(user, model.Password);
+                if (result.Succeeded)
+                {
+                    if (!await RoleManager.RoleExistsAsync("tenats"))
+                    {
+                        TempData["error"] = "error occured, contact the admin";
+                        return View(model);
+                    }
+                    else
+                    {
+                        user = await UserManager.FindByEmailAsync(model.Email);
+                        var addToRole = await UserManager.AddToRoleAsync(user.Id, "tenats");
+                        if (!addToRole.Succeeded)
+                        {
+                            TempData["error"] = "error occured";
+                            return View(model);
+                        }
+                        else
+                        {
+                            await SignInManager.SignInAsync(user, isPersistent: false, rememberBrowser: false);
+                        }
+                    }
+
                     // For more information on how to enable account confirmation and password reset please visit https://go.microsoft.com/fwlink/?LinkID=320771
                     // Send an email with this link
                     // string code = await UserManager.GenerateEmailConfirmationTokenAsync(user.Id);
@@ -184,6 +291,12 @@ namespace flutterwave_sub.Controllers
 
             // If we got this far, something failed, redisplay form
             return View(model);
+        }
+
+        async Task PopulateManagerIdAsync()
+        {
+            var manager = await db.Managers.Select(x => new { ID = x.id, Name = x.account_name }).ToListAsync();
+            ViewBag.managerid = new SelectList(manager, "ID", "Name");
         }
 
         //
