@@ -14,7 +14,7 @@ using System.Collections.Generic;
 
 namespace flutterwave_sub.Controllers
 {
-    [Authorize(Roles = "tenats,managers")]
+    [Authorize(Roles = "tenat,manager,admin")]
     public class AccountController : Controller
     {
         private ApplicationSignInManager _signInManager;
@@ -109,6 +109,323 @@ namespace flutterwave_sub.Controllers
             }
         }
 
+        #region Tenats
+
+        //
+        // GET: /Account/Register
+        [AllowAnonymous]
+        public async Task<ActionResult> Register()
+        {
+            await PopulateManagerIdAsync();
+            return View();
+        }
+
+        //
+        // POST: /Account/Register
+        [HttpPost]
+        [AllowAnonymous]
+        [ValidateAntiForgeryToken]
+        public async Task<ActionResult> Register(RegisterViewModel model)
+        {
+            if (ModelState.IsValid)
+            {
+                var user = new ApplicationUser
+                {
+                    UserName = model.Email,
+                    Email = model.Email,
+                    FirstName = model.FirstName,
+                    LastName = model.LastName,
+                    PhoneNumber = model.Number,
+                };
+                var result = await UserManager.CreateAsync(user, model.Password);
+                if (result.Succeeded)
+                {
+                    if (!await RoleManager.RoleExistsAsync("tenat"))
+                    {
+                        addError();
+                        await PopulateManagerIdAsync();
+                        return View(model);
+                    }
+                    else
+                    {
+                        user = await UserManager.FindByEmailAsync(model.Email);
+                        var addToRole = await UserManager.AddToRoleAsync(user.Id, "tenat");
+                        if (!addToRole.Succeeded)
+                        {
+                            addError();
+                            await PopulateManagerIdAsync();
+                            return View(model);
+                        }
+                        else
+                        {
+                            var sub = new Sub
+                            {
+                                ManagerId = model.ManagerId,
+                                ApplicationUserId = user.Id,
+                            };
+                            try
+                            {
+                                db.Subs.Add(sub);
+                                await db.SaveChangesAsync();
+                            }
+                            catch (Exception ex)
+                            {
+                                throw;
+                            }
+                            await SignInManager.SignInAsync(user, isPersistent: false, rememberBrowser: false);
+                        }
+                    }
+
+                    // For more information on how to enable account confirmation and password reset please visit https://go.microsoft.com/fwlink/?LinkID=320771
+                    // Send an email with this link
+                    // string code = await UserManager.GenerateEmailConfirmationTokenAsync(user.Id);
+                    // var callbackUrl = Url.Action("ConfirmEmail", "Account", new { userId = user.Id, code = code }, protocol: Request.Url.Scheme);
+                    // await UserManager.SendEmailAsync(user.Id, "Confirm your account", "Please confirm your account by clicking <a href=\"" + callbackUrl + "\">here</a>");
+
+                    return RedirectToAction("tenat");
+                }
+                AddErrors(result);
+            }
+
+            // If we got this far, something failed, redisplay form
+            addError();
+            await PopulateManagerIdAsync();
+            return View(model);
+        }
+
+        //[Authorize(Roles = "tenats")]
+        //public async Task<ActionResult> Tenat()
+        //{
+        //    var userId = User.Identity.GetUserId();
+        //    var tenatServises = await db.Subs.FirstOrDefault(x => x.ApplicationUserId == userId)
+        //        .Services.AsQueryable().ToListAsync();
+        //    return View(tenatServises);
+        //}
+
+        [Authorize(Roles = "tenat")]
+        public async Task<ActionResult> Tenat(int? tid)
+        {
+            if (!tid.HasValue)
+                //return RedirectToAction("tenat");
+                return RedirectToAction("index");
+            var manager = await db.Managers.FirstOrDefaultAsync(x => x.Id == tid.Value);
+            ViewBag.Manager = manager;
+
+            var services = await db.Managers.FirstOrDefault(x => x.Id == tid.Value)
+                .Services.AsQueryable().ToListAsync();
+
+            var userId = User.Identity.GetUserId();
+            var tenatServises = await db.Subs.FirstOrDefault(x => x.ApplicationUserId == userId)
+                .Services.AsQueryable().ToListAsync();
+
+            var serviceModel = new List<ServiceViewModel>();
+
+            services.ForEach(x =>
+            {
+                var sm = new ServiceViewModel
+                {
+                    Id = x.Id,
+                    name = x.name,
+                    PlanId = x.PlanId,
+                };
+                if (tenatServises.Any(y => y.Id == x.Id))
+                    sm.active = true;
+                else
+                    sm.active = false;
+
+                serviceModel.Add(sm);
+            });
+
+            return View(serviceModel);
+        }
+
+        #endregion
+
+        #region Managers
+
+        [AllowAnonymous]
+        public ActionResult RegisterM()
+        {
+            return View();
+        }
+
+        [HttpPost]
+        [AllowAnonymous]
+        [ValidateAntiForgeryToken]
+        public async Task<ActionResult> RegisterM(ManagerRegisterModel model)
+        {
+            if (ModelState.IsValid)
+            {
+                var user = new ApplicationUser
+                {
+                    UserName = model.Email,
+                    Email = model.Email,
+                    FirstName = model.FirstName,
+                    LastName = model.LastName,
+                    PhoneNumber = model.Number,
+                };
+                var result = await UserManager.CreateAsync(user, model.Password);
+                if (result.Succeeded)
+                {
+                    if (!await RoleManager.RoleExistsAsync("manager"))
+                    {
+                        addError();
+                        return View(model);
+                    }
+                    else
+                    {
+                        user = await UserManager.FindByEmailAsync(model.Email);
+                        var addToRole = await UserManager.AddToRoleAsync(user.Id, "manager");
+                        if (!addToRole.Succeeded)
+                        {
+                            addError();
+                            return View(model);
+                        }
+                        else
+                        {
+                            var manage = new Manager
+                            {
+                                AccountName = model.AccountName,
+                                ApplicationUserId = user.Id,
+                            };
+                            db.Managers.Add(manage);
+                            try
+                            {
+                                await db.SaveChangesAsync();
+                            }
+                            catch (Exception ex)
+                            {
+
+                                throw;
+                            }
+                            await SignInManager.SignInAsync(user, isPersistent: false, rememberBrowser: false);
+                        }
+                    }
+
+                    // For more information on how to enable account confirmation and password reset please visit https://go.microsoft.com/fwlink/?LinkID=320771
+                    // Send an email with this link
+                    // string code = await UserManager.GenerateEmailConfirmationTokenAsync(user.Id);
+                    // var callbackUrl = Url.Action("ConfirmEmail", "Account", new { userId = user.Id, code = code }, protocol: Request.Url.Scheme);
+                    // await UserManager.SendEmailAsync(user.Id, "Confirm your account", "Please confirm your account by clicking <a href=\"" + callbackUrl + "\">here</a>");
+
+                    return RedirectToAction("manager");
+                }
+                AddErrors(result);
+            }
+
+            // If we got this far, something failed, redisplay form
+            addError();
+            return View(model);
+        }
+
+        //[Authorize(Roles = "manager")]
+        //public async Task<ActionResult> Manager()
+        //{
+        //    var userId = User.Identity.GetUserId();
+        //    var manager = await db.Managers.FirstOrDefaultAsync(x => x.ApplicationUserId == userId);
+        //    if (manager == null)
+        //    {
+        //        addError();
+        //        return RedirectToAction("index");
+        //    }
+        //    else
+        //        return View(manager);
+        //}
+
+        [Authorize(Roles = "manager")]
+        public async Task<ActionResult> Manager(int? tid)
+        {
+            if (!tid.HasValue)
+                return RedirectToAction("index");
+
+            ViewBag.ManagerId = tid.Value;
+
+            var services = await db.Services.AsQueryable().ToListAsync();
+
+            var managerServices = await db.Managers.FirstOrDefault(x => x.Id == tid.Value)
+                .Services.AsQueryable().ToListAsync();
+
+            var serviceModel = new List<ServiceViewModel>();
+
+            services.ForEach(x =>
+            {
+                var sm = new ServiceViewModel
+                {
+                    Id = x.Id,
+                    name = x.name,
+                    PlanId = x.PlanId,
+                };
+                if (managerServices.Any(y => y.Id == x.Id))
+                    sm.active = true;
+                else
+                    sm.active = false;
+
+                serviceModel.Add(sm);
+            });
+
+            return View(serviceModel);
+        }
+
+        [Authorize(Roles = "manager"), HttpPost]
+        public async Task<ActionResult> SelectService(int? sid, int? mid)
+        {
+            if (!sid.HasValue || !mid.HasValue)
+            {
+                addError();
+                return Redirect("index");
+            }
+            var manager = await db.Managers.AsQueryable().FirstOrDefaultAsync(x => x.Id == mid.Value);
+            var service = await db.Services.AsQueryable().FirstOrDefaultAsync(x => x.Id == sid.Value);
+            manager.Services.Add(service);
+            db.Entry(manager).State = EntityState.Modified;
+            await db.SaveChangesAsync();
+            return RedirectToAction("manager");
+        }
+
+        #endregion
+
+        #region Admin
+
+        [Authorize(Roles = "admin")]
+        public ActionResult Addservice()
+        {
+            return View(new Service());
+        }
+
+        [Authorize(Roles = "admin"), HttpPost]
+        public ActionResult Addservice(Service model)
+        {
+            if (!ModelState.IsValid)
+            {
+                addError();
+                return View(model);
+            }
+            db.Services.Add(model);
+            db.SaveChanges();
+            return RedirectToAction("services");
+        }
+
+        [Authorize(Roles = "admin")]
+        public async Task<ActionResult> services()
+        {
+            var services = await db.Services.AsQueryable().ToListAsync();
+            return View(services);
+        }
+
+        #endregion
+
+        void addError()
+        {
+            TempData["error"] = "error occured, contact the admin";
+        }
+
+        async Task PopulateManagerIdAsync()
+        {
+            var manager = await db.Managers.Select(x => new { ID = x.Id, Name = x.AccountName }).ToListAsync();
+            ViewBag.managerid = new SelectList(manager, "ID", "Name");
+        }
+
+        #region Not Needed
         //
         // GET: /Account/VerifyCode
         [AllowAnonymous]
@@ -151,231 +468,7 @@ namespace flutterwave_sub.Controllers
                     return View(model);
             }
         }
-
-        //
-        // GET: /Account/Register
-        [AllowAnonymous]
-        public async Task<ActionResult> RegisterAsync()
-        {
-            await PopulateManagerIdAsync();
-            return View();
-        }
-
-        //
-        // POST: /Account/Register
-        [HttpPost]
-        [AllowAnonymous]
-        [ValidateAntiForgeryToken]
-        public async Task<ActionResult> Register(RegisterViewModel model)
-        {
-            if (ModelState.IsValid)
-            {
-                var user = new ApplicationUser
-                {
-                    UserName = model.Email,
-                    Email = model.Email,
-                    FirstName = model.FirstName,
-                    LastName = model.LastName,
-                    PhoneNumber = model.Number,
-                };
-                var result = await UserManager.CreateAsync(user, model.Password);
-                if (result.Succeeded)
-                {
-                    if (!await RoleManager.RoleExistsAsync("tenats"))
-                    {
-                        addError();
-                        await PopulateManagerIdAsync();
-                        return View(model);
-                    }
-                    else
-                    {
-                        user = await UserManager.FindByEmailAsync(model.Email);
-                        var addToRole = await UserManager.AddToRoleAsync(user.Id, "tenats");
-                        if (!addToRole.Succeeded)
-                        {
-                            addError();
-                            await PopulateManagerIdAsync();
-                            return View(model);
-                        }
-                        else
-                        {
-                            var sub = new Sub
-                            {
-                                ManagerId = model.ManagerId,
-                                ApplicationUserId = user.Id,
-                            };
-                            try
-                            {
-                                db.Subs.Add(sub);
-                                await db.SaveChangesAsync();
-                            }
-                            catch (Exception ex)
-                            {
-                                throw;
-                            }
-                            await SignInManager.SignInAsync(user, isPersistent: false, rememberBrowser: false);
-                        }
-                    }
-
-                    // For more information on how to enable account confirmation and password reset please visit https://go.microsoft.com/fwlink/?LinkID=320771
-                    // Send an email with this link
-                    // string code = await UserManager.GenerateEmailConfirmationTokenAsync(user.Id);
-                    // var callbackUrl = Url.Action("ConfirmEmail", "Account", new { userId = user.Id, code = code }, protocol: Request.Url.Scheme);
-                    // await UserManager.SendEmailAsync(user.Id, "Confirm your account", "Please confirm your account by clicking <a href=\"" + callbackUrl + "\">here</a>");
-
-                    return RedirectToAction("Index", "Home");
-                }
-                AddErrors(result);
-            }
-
-            // If we got this far, something failed, redisplay form
-            addError();
-            await PopulateManagerIdAsync();
-            return View(model);
-        }
-
-        //[Authorize(Roles = "tenats")]
-        //public async Task<ActionResult> Tenat()
-        //{
-        //    var userId = User.Identity.GetUserId();
-        //    var tenatServises = await db.Subs.FirstOrDefault(x => x.ApplicationUserId == userId)
-        //        .Services.AsQueryable().ToListAsync();
-        //    return View(tenatServises);
-        //}
-
-        [Authorize(Roles = "tenats")]
-        public async Task<ActionResult> ManagerServices(int? tid)
-        {
-            if (!tid.HasValue)
-                //return RedirectToAction("tenat");
-                return RedirectToAction("index");
-            var services = await db.Managers.FirstOrDefault(x => x.Id == tid.Value)
-                .Services.AsQueryable().ToListAsync();
-
-            var userId = User.Identity.GetUserId();
-            var tenatServises = await db.Subs.FirstOrDefault(x => x.ApplicationUserId == userId)
-                .Services.AsQueryable().ToListAsync();
-
-            var serviceModel = new List<ServiceViewModel>();
-
-            services.ForEach(x =>
-            {
-                var sm = new ServiceViewModel
-                {
-                    Id = x.Id,
-                    name = x.name,
-                    PlanId = x.PlanId,
-                };
-                if (tenatServises.Any(y => y.Id == x.Id))
-                    sm.active = true;
-                else
-                    sm.active = false;
-
-                serviceModel.Add(sm);
-            });
-
-            return View(serviceModel);
-        }
-
-        [AllowAnonymous]
-        public ActionResult RegisterM()
-        {
-            return View();
-        }
-
-        [HttpPost]
-        [AllowAnonymous]
-        [ValidateAntiForgeryToken]
-        public async Task<ActionResult> RegisterM(ManagerRegisterModel model)
-        {
-            if (ModelState.IsValid)
-            {
-                var user = new ApplicationUser
-                {
-                    UserName = model.Email,
-                    Email = model.Email,
-                    FirstName = model.FirstName,
-                    LastName = model.LastName,
-                    PhoneNumber = model.Number,
-                };
-                var result = await UserManager.CreateAsync(user, model.Password);
-                if (result.Succeeded)
-                {
-                    if (!await RoleManager.RoleExistsAsync("managers"))
-                    {
-                        addError();
-                        return View(model);
-                    }
-                    else
-                    {
-                        user = await UserManager.FindByEmailAsync(model.Email);
-                        var addToRole = await UserManager.AddToRoleAsync(user.Id, "managers");
-                        if (!addToRole.Succeeded)
-                        {
-                            addError();
-                            return View(model);
-                        }
-                        else
-                        {
-                            var manage = new Manager
-                            {
-                                AccountName = model.AccountName,
-                                ApplicationUserId = user.Id,
-                            };
-                            db.Managers.Add(manage);
-                            try
-                            {
-                                await db.SaveChangesAsync();
-                            }
-                            catch (Exception ex)
-                            {
-
-                                throw;
-                            }
-                            await SignInManager.SignInAsync(user, isPersistent: false, rememberBrowser: false);
-                        }
-                    }
-
-                    // For more information on how to enable account confirmation and password reset please visit https://go.microsoft.com/fwlink/?LinkID=320771
-                    // Send an email with this link
-                    // string code = await UserManager.GenerateEmailConfirmationTokenAsync(user.Id);
-                    // var callbackUrl = Url.Action("ConfirmEmail", "Account", new { userId = user.Id, code = code }, protocol: Request.Url.Scheme);
-                    // await UserManager.SendEmailAsync(user.Id, "Confirm your account", "Please confirm your account by clicking <a href=\"" + callbackUrl + "\">here</a>");
-
-                    return RedirectToAction("Index", "Home");
-                }
-                AddErrors(result);
-            }
-
-            // If we got this far, something failed, redisplay form
-            addError();
-            return View(model);
-        }
-
-        //[Authorize(Roles = "manager")]
-        //public async Task<ActionResult> Manager()
-        //{
-        //    var userId = User.Identity.GetUserId();
-        //    var manager = await db.Managers.FirstOrDefaultAsync(x => x.ApplicationUserId == userId);
-        //    if (manager == null)
-        //    {
-        //        addError();
-        //        return RedirectToAction("index");
-        //    }
-        //    else
-        //        return View(manager);
-        //}
-
-        void addError()
-        {
-            TempData["error"] = "error occured, contact the admin";
-        }
-
-        async Task PopulateManagerIdAsync()
-        {
-            var manager = await db.Managers.Select(x => new { ID = x.Id, Name = x.AccountName }).ToListAsync();
-            ViewBag.managerid = new SelectList(manager, "ID", "Name");
-        }
+        #endregion
 
         //
         // GET: /Account/ConfirmEmail
