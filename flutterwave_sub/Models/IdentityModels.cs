@@ -25,6 +25,10 @@ namespace flutterwave_sub.Models
 
     public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     {
+        public virtual DbSet<Sub> Subs { get; set; }
+        public virtual DbSet<Service> Services { get; set; }
+        public virtual DbSet<Manager> Managers { get; set; }
+
         public ApplicationDbContext()
             : base("DefaultConnection", throwIfV1Schema: false)
         {
