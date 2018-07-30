@@ -80,6 +80,15 @@ namespace flutterwave_sub.Controllers
         [AllowAnonymous]
         public ActionResult Login(string returnUrl)
         {
+            if (User.Identity.IsAuthenticated)
+            {
+                if (User.IsInRole("admin"))
+                    return RedirectToAction("AllServices");
+                if (User.IsInRole("manager"))
+                    return RedirectToAction("manager");
+                if (User.IsInRole("tenat"))
+                    return RedirectToAction("tenat");
+            }
             ViewBag.ReturnUrl = returnUrl;
             return View();
         }
@@ -162,14 +171,14 @@ namespace flutterwave_sub.Controllers
                         }
                         else
                         {
-                            var sub = new Vendor
+                            var vendor = new Vendor
                             {
                                 ManagerId = model.ManagerId,
                                 ApplicationUserId = user.Id,
                             };
                             try
                             {
-                                db.Subs.Add(sub);
+                                db.Vendors.Add(vendor);
                                 await db.SaveChangesAsync();
                             }
                             catch (Exception ex)
@@ -210,8 +219,10 @@ namespace flutterwave_sub.Controllers
         public async Task<ActionResult> Tenat(int? mid)
         {
             if (!mid.HasValue)
-                //return RedirectToAction("tenat");
-                return RedirectToAction("index");
+            {
+                var userid = User.Identity.GetUserId();
+                mid = db.Vendors.Where(x => x.ApplicationUserId == userid).FirstOrDefault().ManagerId;
+            }
             var manager = await db.Managers.FirstOrDefaultAsync(x => x.Id == mid.Value);
             ViewBag.Manager = manager;
 
@@ -219,7 +230,7 @@ namespace flutterwave_sub.Controllers
                 .Services.AsQueryable().ToListAsync();
 
             var userId = User.Identity.GetUserId();
-            var tenatServises = await db.Subs.FirstOrDefault(x => x.ApplicationUserId == userId)
+            var tenatServises = await db.Vendors.FirstOrDefault(x => x.ApplicationUserId == userId)
                 .Services.AsQueryable().ToListAsync();
 
             var serviceModel = new List<ServiceViewModel>();
@@ -268,7 +279,7 @@ namespace flutterwave_sub.Controllers
                     LastName = model.LastName,
                     PhoneNumber = model.Number,
                 };
-                var manager = new Manager();
+                Manager manager;
                 var result = await UserManager.CreateAsync(user, model.Password);
                 if (result.Succeeded)
                 {
@@ -288,16 +299,16 @@ namespace flutterwave_sub.Controllers
                         }
                         else
                         {
-                            var manage = new Manager
+                            manager = new Manager
                             {
                                 AccountName = model.AccountName,
                                 ApplicationUserId = user.Id,
                             };
-                            db.Managers.Add(manage);
+                            db.Managers.Add(manager);
                             try
                             {
                                 await db.SaveChangesAsync();
-                                manage = await db.Managers.FirstOrDefaultAsync(x => x.ApplicationUserId == user.Id);
+                                manager = await db.Managers.FirstOrDefaultAsync(x => x.ApplicationUserId == user.Id);
                             }
                             catch (Exception ex)
                             {
@@ -342,7 +353,11 @@ namespace flutterwave_sub.Controllers
         public async Task<ActionResult> Manager(int? mid)
         {
             if (!mid.HasValue)
-                return RedirectToAction("index");
+            {
+                var userId = User.Identity.GetUserId();
+                var query = "select Id from managers where ApplicationUserId = @p0";
+                mid = await db.Database.SqlQuery<int>(query, userId).FirstOrDefaultAsync();
+            }
 
             ViewBag.ManagerId = mid.Value;
 
@@ -351,13 +366,14 @@ namespace flutterwave_sub.Controllers
             return View(services);
         }
 
-        [Authorize(Roles = "manager")]
+        [Authorize(Roles = "manager,admin")]
         public async Task<ActionResult> Service(int? sid)
         {
             if (!sid.HasValue)
             {
-                addError();
-                return Redirect("index");
+                var userId = User.Identity.GetUserId();
+                var query = "select Id from managers where ApplicationUserId = @p0";
+                sid = await db.Database.SqlQuery<int>(query, userId).FirstOrDefaultAsync();
             }
 
             var service = await db.Services.AsQueryable().FirstOrDefaultAsync(x => x.Id == sid.Value);
@@ -372,7 +388,7 @@ namespace flutterwave_sub.Controllers
             return View(new ServiceAddModel());
         }
 
-        [Authorize(Roles = "manager"), HttpPost]
+        [Authorize(Roles = "manager"), HttpPost, ValidateAntiForgeryToken]
         public async Task<ActionResult> Addservice(ServiceAddModel model)
         {
             if (!ModelState.IsValid)
@@ -384,21 +400,28 @@ namespace flutterwave_sub.Controllers
             var data = await CreatePaymentPlanAsync(model);
             //db.Services.Add(model);
             db.SaveChanges();
-            return RedirectToAction("services");
+            addSuccess();
+            return RedirectToAction("Manager");
         }
 
         #endregion
 
         #region API Endpoint
 
-        static async Task<Uri> CreatePaymentPlanAsync(ServiceAddModel model)
+        static async Task<string> CreatePaymentPlanAsync(ServiceAddModel model)
         {
+            var baseUrl = "https://ravesandboxapi.flutterwave.com";
+            var url = "v2/gpx/paymentplans/create";
+            client.BaseAddress = new Uri(baseUrl);
+            client.DefaultRequestHeaders.Accept.Add(
+            new MediaTypeWithQualityHeaderValue("application/json"));
+
             HttpResponseMessage response = await client.PostAsJsonAsync(
-                "https://ravesandboxapi.flutterwave.com/v2/gpx/paymentplans/create", model);
+                url, model);
             response.EnsureSuccessStatusCode();
 
             // return URI of the created resource.
-            return response.Headers.Location;
+            return await response.Content.ReadAsStringAsync();
         }
 
         #endregion
@@ -406,7 +429,7 @@ namespace flutterwave_sub.Controllers
         #region Admin
 
         [Authorize(Roles = "admin")]
-        public async Task<ActionResult> services()
+        public async Task<ActionResult> AllServices()
         {
             var services = await db.Services.AsQueryable().ToListAsync();
             return View("Manager", services);
@@ -417,6 +440,11 @@ namespace flutterwave_sub.Controllers
         void addError()
         {
             TempData["error"] = "error occured, contact the admin";
+        }
+
+        void addSuccess()
+        {
+            TempData["success"] = "action successful";
         }
 
         async Task PopulateManagerIdAsync()
