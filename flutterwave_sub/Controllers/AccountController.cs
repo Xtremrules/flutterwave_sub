@@ -10,10 +10,11 @@ using Microsoft.AspNet.Identity;
 using Microsoft.AspNet.Identity.Owin;
 using Microsoft.Owin.Security;
 using flutterwave_sub.Models;
+using System.Collections.Generic;
 
 namespace flutterwave_sub.Controllers
 {
-    [Authorize]
+    [Authorize(Roles = "tenats,managers")]
     public class AccountController : Controller
     {
         private ApplicationSignInManager _signInManager;
@@ -182,7 +183,7 @@ namespace flutterwave_sub.Controllers
                 {
                     if (!await RoleManager.RoleExistsAsync("tenats"))
                     {
-                        TempData["error"] = "error occured, contact the admin";
+                        addError();
                         await PopulateManagerIdAsync();
                         return View(model);
                     }
@@ -192,7 +193,7 @@ namespace flutterwave_sub.Controllers
                         var addToRole = await UserManager.AddToRoleAsync(user.Id, "tenats");
                         if (!addToRole.Succeeded)
                         {
-                            TempData["error"] = "error occured";
+                            addError();
                             await PopulateManagerIdAsync();
                             return View(model);
                         }
@@ -228,8 +229,52 @@ namespace flutterwave_sub.Controllers
             }
 
             // If we got this far, something failed, redisplay form
+            addError();
             await PopulateManagerIdAsync();
             return View(model);
+        }
+
+        //[Authorize(Roles = "tenats")]
+        //public async Task<ActionResult> Tenat()
+        //{
+        //    var userId = User.Identity.GetUserId();
+        //    var tenatServises = await db.Subs.FirstOrDefault(x => x.ApplicationUserId == userId)
+        //        .Services.AsQueryable().ToListAsync();
+        //    return View(tenatServises);
+        //}
+
+        [Authorize(Roles = "tenats")]
+        public async Task<ActionResult> ManagerServices(int? tid)
+        {
+            if (!tid.HasValue)
+                //return RedirectToAction("tenat");
+                return RedirectToAction("index");
+            var services = await db.Managers.FirstOrDefault(x => x.Id == tid.Value)
+                .Services.AsQueryable().ToListAsync();
+
+            var userId = User.Identity.GetUserId();
+            var tenatServises = await db.Subs.FirstOrDefault(x => x.ApplicationUserId == userId)
+                .Services.AsQueryable().ToListAsync();
+
+            var serviceModel = new List<ServiceViewModel>();
+
+            services.ForEach(x =>
+            {
+                var sm = new ServiceViewModel
+                {
+                    Id = x.Id,
+                    name = x.name,
+                    PlanId = x.PlanId,
+                };
+                if (tenatServises.Any(y => y.Id == x.Id))
+                    sm.active = true;
+                else
+                    sm.active = false;
+
+                serviceModel.Add(sm);
+            });
+
+            return View(serviceModel);
         }
 
         [AllowAnonymous]
@@ -238,8 +283,6 @@ namespace flutterwave_sub.Controllers
             return View();
         }
 
-        //
-        // POST: /Account/Register
         [HttpPost]
         [AllowAnonymous]
         [ValidateAntiForgeryToken]
@@ -258,22 +301,37 @@ namespace flutterwave_sub.Controllers
                 var result = await UserManager.CreateAsync(user, model.Password);
                 if (result.Succeeded)
                 {
-                    if (!await RoleManager.RoleExistsAsync("tenats"))
+                    if (!await RoleManager.RoleExistsAsync("managers"))
                     {
-                        TempData["error"] = "error occured, contact the admin";
+                        addError();
                         return View(model);
                     }
                     else
                     {
                         user = await UserManager.FindByEmailAsync(model.Email);
-                        var addToRole = await UserManager.AddToRoleAsync(user.Id, "tenats");
+                        var addToRole = await UserManager.AddToRoleAsync(user.Id, "managers");
                         if (!addToRole.Succeeded)
                         {
-                            TempData["error"] = "error occured";
+                            addError();
                             return View(model);
                         }
                         else
                         {
+                            var manage = new Manager
+                            {
+                                AccountName = model.AccountName,
+                                ApplicationUserId = user.Id,
+                            };
+                            db.Managers.Add(manage);
+                            try
+                            {
+                                await db.SaveChangesAsync();
+                            }
+                            catch (Exception ex)
+                            {
+
+                                throw;
+                            }
                             await SignInManager.SignInAsync(user, isPersistent: false, rememberBrowser: false);
                         }
                     }
@@ -290,7 +348,27 @@ namespace flutterwave_sub.Controllers
             }
 
             // If we got this far, something failed, redisplay form
+            addError();
             return View(model);
+        }
+
+        //[Authorize(Roles = "manager")]
+        //public async Task<ActionResult> Manager()
+        //{
+        //    var userId = User.Identity.GetUserId();
+        //    var manager = await db.Managers.FirstOrDefaultAsync(x => x.ApplicationUserId == userId);
+        //    if (manager == null)
+        //    {
+        //        addError();
+        //        return RedirectToAction("index");
+        //    }
+        //    else
+        //        return View(manager);
+        //}
+
+        void addError()
+        {
+            TempData["error"] = "error occured, contact the admin";
         }
 
         async Task PopulateManagerIdAsync()

@@ -104,7 +104,7 @@ namespace flutterwave_sub.Models
         public string FirstName { get; set; }
         [Required]
         public string LastName { get; set; }
-        public int ManagerId { get; set; }
+        public string AccountName { get; set; }
 
         [Required]
         [StringLength(100, ErrorMessage = "The {0} must be at least {2} characters long.", MinimumLength = 6)]
