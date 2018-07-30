@@ -73,10 +73,10 @@ namespace flutterwave_sub.Models
         [Display(Name = "Phone Number")]
         public string Number { get; set; }
         [Required]
-        public string firstname { get; set; }
+        public string FirstName { get; set; }
         [Required]
-        public string lastname { get; set; }
-        public int managerid { get; set; }
+        public string LastName { get; set; }
+        public int ManagerId { get; set; }
 
         [Required]
         [StringLength(100, ErrorMessage = "The {0} must be at least {2} characters long.", MinimumLength = 6)]
@@ -101,10 +101,10 @@ namespace flutterwave_sub.Models
         [Display(Name = "Phone Number")]
         public string Number { get; set; }
         [Required]
-        public string firstname { get; set; }
+        public string FirstName { get; set; }
         [Required]
-        public string lastname { get; set; }
-        public int managerid { get; set; }
+        public string LastName { get; set; }
+        public int ManagerId { get; set; }
 
         [Required]
         [StringLength(100, ErrorMessage = "The {0} must be at least {2} characters long.", MinimumLength = 6)]

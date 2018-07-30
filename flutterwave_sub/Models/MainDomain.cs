@@ -5,9 +5,9 @@ namespace flutterwave_sub.Models
 {
     public class Service
     {
-        public int id { get; set; }
+        public int Id { get; set; }
         [Required]
-        public int plan_id { get; set; }
+        public int PlanId { get; set; }
         [Required]
         public string name { get; set; }
         public virtual ICollection<Sub> Subs { get; set; }
@@ -16,11 +16,11 @@ namespace flutterwave_sub.Models
 
     public class Manager
     {
-        public int id { get; set; }
+        public int Id { get; set; }
         [Required]
-        public string account_name { get; set; }
+        public string AccountName { get; set; }
 
-        public string ApplicationUserid { get; set; }
+        public string ApplicationUserId { get; set; }
         public virtual ApplicationUser ApplicationUser { get; set; }
 
         public virtual ICollection<Sub> Subs { get; set; }
@@ -29,13 +29,13 @@ namespace flutterwave_sub.Models
 
     public class Sub
     {
-        public int id { get; set; }
-        public string token { get; set; }
+        public int Id { get; set; }
+        public string Token { get; set; }
 
-        public string ApplicationUserid { get; set; }
+        public string ApplicationUserId { get; set; }
         public virtual ApplicationUser ApplicationUser { get; set; }
 
-        public int Managerid { get; set; }
+        public int ManagerId { get; set; }
         public virtual Manager Manager { get; set; }
 
         public virtual ICollection<Service> Services { get; set; }

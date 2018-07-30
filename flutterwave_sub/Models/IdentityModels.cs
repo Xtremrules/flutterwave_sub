@@ -11,9 +11,9 @@ namespace flutterwave_sub.Models
     public class ApplicationUser : IdentityUser
     {
         [Required]
-        public string firstname { get; set; }
+        public string FirstName { get; set; }
         [Required]
-        public string lastname { get; set; }
+        public string LastName { get; set; }
         public async Task<ClaimsIdentity> GenerateUserIdentityAsync(UserManager<ApplicationUser> manager)
         {
             // Note the authenticationType must match the one defined in CookieAuthenticationOptions.AuthenticationType

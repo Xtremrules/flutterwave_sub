@@ -173,8 +173,8 @@ namespace flutterwave_sub.Controllers
                 {
                     UserName = model.Email,
                     Email = model.Email,
-                    firstname = model.firstname,
-                    lastname = model.lastname,
+                    FirstName = model.FirstName,
+                    LastName = model.LastName,
                     PhoneNumber = model.Number,
                 };
                 var result = await UserManager.CreateAsync(user, model.Password);
@@ -200,8 +200,8 @@ namespace flutterwave_sub.Controllers
                         {
                             var sub = new Sub
                             {
-                                Managerid = model.managerid,
-                                ApplicationUserid = user.Id,
+                                ManagerId = model.ManagerId,
+                                ApplicationUserId = user.Id,
                             };
                             try
                             {
@@ -251,8 +251,8 @@ namespace flutterwave_sub.Controllers
                 {
                     UserName = model.Email,
                     Email = model.Email,
-                    firstname = model.firstname,
-                    lastname = model.lastname,
+                    FirstName = model.FirstName,
+                    LastName = model.LastName,
                     PhoneNumber = model.Number,
                 };
                 var result = await UserManager.CreateAsync(user, model.Password);
@@ -295,7 +295,7 @@ namespace flutterwave_sub.Controllers
 
         async Task PopulateManagerIdAsync()
         {
-            var manager = await db.Managers.Select(x => new { ID = x.id, Name = x.account_name }).ToListAsync();
+            var manager = await db.Managers.Select(x => new { ID = x.Id, Name = x.AccountName }).ToListAsync();
             ViewBag.managerid = new SelectList(manager, "ID", "Name");
         }
 
