@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27703.2042
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "flutterwave_sub", "flutterwave_sub\flutterwave_sub.csproj", "{2D679C53-EB7A-4D9C-8DB7-22874186214A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "flutterwave_sub.Tests", "flutterwave_sub.Tests\flutterwave_sub.Tests.csproj", "{29E7A859-6C30-4011-A07E-9FD061B6CC38}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2D679C53-EB7A-4D9C-8DB7-22874186214A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2D679C53-EB7A-4D9C-8DB7-22874186214A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2D679C53-EB7A-4D9C-8DB7-22874186214A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2D679C53-EB7A-4D9C-8DB7-22874186214A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{29E7A859-6C30-4011-A07E-9FD061B6CC38}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{29E7A859-6C30-4011-A07E-9FD061B6CC38}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{29E7A859-6C30-4011-A07E-9FD061B6CC38}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{29E7A859-6C30-4011-A07E-9FD061B6CC38}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {0C5C972F-3C25-48B0-8821-F8FB93E137FB}
+	EndGlobalSection
+EndGlobal
