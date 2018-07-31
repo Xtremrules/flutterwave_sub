@@ -18,7 +18,7 @@ namespace flutterwave_sub.JsonModel
     /// <summary>
     /// This will require pin and suggested_auth
     /// </summary>
-    public class CardPayDetails_1 : CardDetails
+    public class CardPayDetails_NotComplete : CardDetails
     {
         public string PBFPubKey { get; set; }
         public string amount { get; set; }
@@ -47,9 +47,29 @@ namespace flutterwave_sub.JsonModel
         public string payment_plan { get; set; }
     }
 
-   public class CardPayDetails_Complete: CardPayDetails_1
+    public class CardPayDetails_Pin : CardPayDetails_NotComplete
     {
         public string pin { get; set; }
-        public string suggested_auth { get; set; }
+        public const string suggested_auth = "PIN";
+    }
+
+    public class CardPayDetails_AVS_VBVSECURECODE: CardPayDetails_NotComplete
+    {
+        public const string suggested_auth = "AVS_VBVSECURECODE";
+        public string billingzip { get; set; }
+        public string billingcity { get; set; }
+        public string billingaddress { get; set; }
+        public string billingstate { get; set; }
+        public string billingcountry { get; set; }
+    }
+
+    public class CardPayDetails_NOAUTH_INTERNATIONAL : CardPayDetails_NotComplete
+    {
+        public const string suggested_auth = "NOAUTH_INTERNATIONAL";
+        public string billingzip { get; set; }
+        public string billingcity { get; set; }
+        public string billingaddress { get; set; }
+        public string billingstate { get; set; }
+        public string billingcountry { get; set; }
     }
 }

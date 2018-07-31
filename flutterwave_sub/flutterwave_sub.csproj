@@ -215,6 +215,14 @@
     <Compile Include="Migrations\201807301907499_initial.Designer.cs">
       <DependentUpon>201807301907499_initial.cs</DependentUpon>
     </Compile>
+    <Compile Include="Migrations\201807311934519_addedDateTime.cs" />
+    <Compile Include="Migrations\201807311934519_addedDateTime.Designer.cs">
+      <DependentUpon>201807311934519_addedDateTime.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Migrations\201807312127426_addedOrder.cs" />
+    <Compile Include="Migrations\201807312127426_addedOrder.Designer.cs">
+      <DependentUpon>201807312127426_addedOrder.cs</DependentUpon>
+    </Compile>
     <Compile Include="Migrations\Configuration.cs" />
     <Compile Include="Models\AccountViewModels.cs" />
     <Compile Include="Models\IdentityModels.cs" />
@@ -290,6 +298,7 @@
     <Content Include="Views\Account\Addservice.cshtml" />
     <Content Include="Views\Account\Service.cshtml" />
     <Content Include="Views\Account\Subscribe.cshtml" />
+    <Content Include="Views\Account\Subscribe_pin.cshtml" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\" />
@@ -312,6 +321,12 @@
   <ItemGroup>
     <EmbeddedResource Include="Migrations\201807301907499_initial.resx">
       <DependentUpon>201807301907499_initial.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201807311934519_addedDateTime.resx">
+      <DependentUpon>201807311934519_addedDateTime.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201807312127426_addedOrder.resx">
+      <DependentUpon>201807312127426_addedOrder.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
   <PropertyGroup>

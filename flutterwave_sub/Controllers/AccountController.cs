@@ -17,6 +17,7 @@ using System.Collections.Generic;
 using flutterwave_sub.JsonModel;
 using flutterwave_sub.Encryption;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace flutterwave_sub.Controllers
 {
@@ -285,14 +286,69 @@ namespace flutterwave_sub.Controllers
             }
 
             var details = await generateCardPayDetailsAsync(user, model);
+            Session.Add("CardDetails", details);
             var stringDetails = JsonConvert.SerializeObject(details);
 
             var key = rEn.GetEncryptionKey(Credentials.API_Secret_Key);
             var cipher = rEn.EncryptData(key, stringDetails);
 
             var reponse = await SubscribeAsync(cipher);
+            var res = JObject.Parse(reponse);
+            var data = (JObject)res["data"];
+            var suggested_auth = data["suggested_auth"].ToString();
+            if (suggested_auth == "PIN")
+            {
+                return View("Subscribe_pin");
+            }
+            if(suggested_auth == "NOAUTH_INTERNATIONAL")
+            {
+                return View("Subscribe_no_auth_inter");
+            }
+            if(suggested_auth == "AVS_VBVSECURECODE")
+            {
+                return View("Subscribe_avs_vbv_code");
+            }
 
-            return View(model);
+            return View("Subscribe_pin");
+        }
+
+        [Authorize(Roles = "tenat"), HttpPost, ValidateAntiForgeryToken]
+        public async Task<ActionResult> Subscribe_pin(string pin)
+        {
+            CardPayDetails_Pin cardDetails = (CardPayDetails_Pin)Session["CardDetails"];
+            cardDetails.pin = pin;
+
+            var stringDetails = JsonConvert.SerializeObject(cardDetails);
+
+            var key = rEn.GetEncryptionKey(Credentials.API_Secret_Key);
+            var cipher = rEn.EncryptData(key, stringDetails);
+
+            var reponse = await SubscribeAsync(cipher);
+
+            var res = JObject.Parse(reponse);
+            var data = (JObject)res["data"];
+
+            var orderRef = data["orderRef"].ToString();
+            var flwRef = data["flwRef"].ToString();
+            var chargeResponseCode = Convert.ToInt32(data["chargeResponseCode"].ToString());
+            var authModelUsed = data["authModelUsed"].ToString();
+
+            var userid = User.Identity.GetUserId();
+            var query = "select Id from vendors where applicationuserid = @p0";
+            var vId = await db.Database.SqlQuery<int>(query, userid).FirstAsync();
+
+            var sub = new Subs
+            {
+                VendorId = vId,
+                ServiceId = cardDetails.serviceId,
+                txRef = cardDetails.txRef,
+                flwRef = flwRef,
+                orderRef = orderRef,
+            };
+
+            Session.Add("sub", sub);
+
+            return View(pin);
         }
 
         #endregion
@@ -498,7 +554,7 @@ namespace flutterwave_sub.Controllers
 
             HttpResponseMessage response = await client.PostAsJsonAsync(url, 
                 new { PBFPubKey = Credentials.API_Public_Key, client = cipher, alg = "3DES-24" });
-            return await response.Content.ReadAsStringAsync();
+            return await response.Content.ReadAsStringAsync(); //ReadAsAsync<AuthResponseObject>();
         }
 
         #endregion
@@ -541,21 +597,20 @@ namespace flutterwave_sub.Controllers
             ViewBag.interval = new SelectList(interval, "Value", "Text");
         }
 
-        async Task<CardPayDetails_1> generateCardPayDetailsAsync(ApplicationUser user, CardDetails details)
+        async Task<CardPayDetails_NotComplete> generateCardPayDetailsAsync(ApplicationUser user, CardDetails details)
         {
             Fingerprinter.Generate(Request.ServerVariables);
 
-            var _details = new CardPayDetails_1
+            var _details = new CardPayDetails_NotComplete
             {
                 email = user.Email,
                 firstname = user.FirstName,
                 lastname = user.LastName,
                 PBFPubKey = Credentials.API_Public_Key,
-                cardno = details.cardno,
+                cardno = details.cardno.Replace(" ","").Trim(),
                 cvv = details.cvv,
                 expirymonth = details.expirymonth,
                 expiryyear = details.expiryyear,
-                pin = details.pin,
             };
 
             var sQuery = "Select * from Services where Id = @p0";

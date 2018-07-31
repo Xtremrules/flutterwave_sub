@@ -50,6 +50,8 @@ namespace flutterwave_sub.Models
 
         public string raveRef { get; set; }
 
+        public string orderRef { get; set; }
+
         public DateTime dateTime { get; set; }
 
         public string status { get; set; }
