@@ -14,7 +14,6 @@ using Microsoft.AspNet.Identity.Owin;
 using Microsoft.Owin.Security;
 using flutterwave_sub.Models;
 using System.Collections.Generic;
-using flutterwave_sub.JsonModel;
 
 namespace flutterwave_sub.Controllers
 {
@@ -109,11 +108,19 @@ namespace flutterwave_sub.Controllers
             // This doesn't count login failures towards account lockout
             // To enable password failures to trigger account lockout, change to shouldLockout: true
             var result = await SignInManager.PasswordSignInAsync(model.Email, model.Password, model.RememberMe, shouldLockout: false);
-            if (result == SignInStatus.Success)
-                return RedirectToAction("manager");
-
-            ModelState.AddModelError("", "Invalid login attempt.");
-            return View(model);
+            switch (result)
+            {
+                case SignInStatus.Success:
+                    return RedirectToLocal(returnUrl);
+                case SignInStatus.LockedOut:
+                    return View("Lockout");
+                case SignInStatus.RequiresVerification:
+                    return RedirectToAction("SendCode", new { ReturnUrl = returnUrl, RememberMe = model.RememberMe });
+                case SignInStatus.Failure:
+                default:
+                    ModelState.AddModelError("", "Invalid login attempt.");
+                    return View(model);
+            }
         }
 
         #region Tenats
@@ -211,22 +218,20 @@ namespace flutterwave_sub.Controllers
         [Authorize(Roles = "tenat")]
         public async Task<ActionResult> Tenat(int? mid)
         {
-            var userId = User.Identity.GetUserId();
             if (!mid.HasValue)
             {
-                mid = db.Vendors.Where(x => x.ApplicationUserId == userId).FirstOrDefault().ManagerId;
+                var userid = User.Identity.GetUserId();
+                mid = db.Vendors.Where(x => x.ApplicationUserId == userid).FirstOrDefault().ManagerId;
             }
             var manager = await db.Managers.FirstOrDefaultAsync(x => x.Id == mid.Value);
             ViewBag.Manager = manager;
 
-            var sQuery = "Select * from Services where ManagerId = @p0";
+            var services = await db.Managers.FirstOrDefault(x => x.Id == mid.Value)
+                .Services.AsQueryable().ToListAsync();
 
-            var vsQuery = " Select * from Services where Id in ( Select ServiceId from VendorService Where VendorId In" +
-                "( Select Id from Vendors Where ApplicationUserId = @p0 ))";
-
-            var services = await db.Services.SqlQuery(sQuery, mid.Value).ToListAsync();
-
-            var tenatServises = await db.Services.SqlQuery(vsQuery, userId).ToListAsync();
+            var userId = User.Identity.GetUserId();
+            var tenatServises = await db.Vendors.FirstOrDefault(x => x.ApplicationUserId == userId)
+                .Services.AsQueryable().ToListAsync();
 
             var serviceModel = new List<ServiceViewModel>();
 
@@ -371,20 +376,16 @@ namespace flutterwave_sub.Controllers
                 sid = await db.Database.SqlQuery<int>(query, userId).FirstOrDefaultAsync();
             }
 
-            var service = await db.Services.Include(x => x.Vendors
-            .Select(y => y.ApplicationUser)).AsQueryable()
-                .FirstOrDefaultAsync(x => x.Id == sid.Value);
+            var service = await db.Services.AsQueryable().FirstOrDefaultAsync(x => x.Id == sid.Value);
 
             return View(service);
         }
 
         [Authorize(Roles = "manager")]
-        public ActionResult Addservice(int? mid)
+        public ActionResult Addservice()
         {
-            if (!mid.HasValue)
-                return RedirectToAction("manager");
             PopulatePlanInterval();
-            return View(new ServiceAddModel { ManagerId = mid.Value });
+            return View(new ServiceAddModel());
         }
 
         [Authorize(Roles = "manager"), HttpPost, ValidateAntiForgeryToken]
@@ -396,30 +397,10 @@ namespace flutterwave_sub.Controllers
                 return View(model);
             }
             model.seckey = Credentials.API_Secret_Key;
-            try
-            {
-                var data = await CreatePaymentPlanAsync(model);
-                var plan = new Service
-                {
-                    PlanId = data.data.id,
-                    Plan_token = data.data.plan_token,
-                    Amount = Convert.ToDecimal(data.data.amount),
-                    ManagerId = model.ManagerId,
-                    Interval = data.data.interval,
-                    Name = data.data.name,
-                };
-
-                db.Services.Add(plan);
-
-                db.SaveChanges();
-                addSuccess();
-            }
-            catch (Exception ex)
-            {
-
-                throw;
-            }
-
+            var data = await CreatePaymentPlanAsync(model);
+            //db.Services.Add(model);
+            db.SaveChanges();
+            addSuccess();
             return RedirectToAction("Manager");
         }
 
@@ -427,19 +408,20 @@ namespace flutterwave_sub.Controllers
 
         #region API Endpoint
 
-        static async Task<PaymentPlanObject> CreatePaymentPlanAsync(ServiceAddModel model)
+        static async Task<string> CreatePaymentPlanAsync(ServiceAddModel model)
         {
-            var url = "v2/gpx/paymentplans/create";
             var baseUrl = "https://ravesandboxapi.flutterwave.com";
-            //client.BaseAddress = new Uri(baseUrl);
+            var url = "v2/gpx/paymentplans/create";
+            client.BaseAddress = new Uri(baseUrl);
             client.DefaultRequestHeaders.Accept.Add(
             new MediaTypeWithQualityHeaderValue("application/json"));
 
             HttpResponseMessage response = await client.PostAsJsonAsync(
-                baseUrl + "/" + url, model);
+                url, model);
             response.EnsureSuccessStatusCode();
 
-            return await response.Content.ReadAsAsync<PaymentPlanObject>();
+            // return URI of the created resource.
+            return await response.Content.ReadAsStringAsync();
         }
 
         #endregion

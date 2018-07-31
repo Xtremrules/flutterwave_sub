@@ -17,8 +17,6 @@ namespace flutterwave_sub.Models
         [Required]
         public decimal amount { get; set; }
         [Required]
-        public int ManagerId { get; set; }
-        [Required]
         public string interval { get; set; }
         public string seckey { get; set; }
     }
