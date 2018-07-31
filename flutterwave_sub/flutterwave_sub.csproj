@@ -201,6 +201,7 @@
     <Compile Include="Controllers\HomeController.cs" />
     <Compile Include="Controllers\ManageController.cs" />
     <Compile Include="Credentials.cs" />
+    <Compile Include="Encryption\FingerPrinter.cs" />
     <Compile Include="Encryption\IPaymentDataEncryption.cs" />
     <Compile Include="Encryption\RavePaymentDataEncryption.cs" />
     <Compile Include="Global.asax.cs">
