@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
 namespace flutterwave_sub.Models
@@ -15,6 +16,8 @@ namespace flutterwave_sub.Models
         [Required]
         public string Plan_token { get; set; }
 
+        public DateTime dateTime { get; set; }
+
         public int ManagerId { get; set; }
         public Manager Manager { get; set; }
 
@@ -29,6 +32,8 @@ namespace flutterwave_sub.Models
         [Required]
         public string AccountName { get; set; }
 
+        public DateTime dateTime { get; set; }
+
         public string ApplicationUserId { get; set; }
         public virtual ApplicationUser ApplicationUser { get; set; }
         public virtual ICollection<Service> Services { get; set; }
@@ -39,7 +44,11 @@ namespace flutterwave_sub.Models
     {
         public int Id { get; set; }
 
-        public string TxId { get; set; }
+        public string txRef { get; set; }
+
+        public string flwRef { get; set; }
+
+        public DateTime dateTime { get; set; }
 
         public int ServiceId { get; set; }
         public virtual Service Service { get; set; }
@@ -56,5 +65,6 @@ namespace flutterwave_sub.Models
         public int ManagerId { get; set; }
         public virtual Manager Manager { get; set; }
         public virtual ICollection<Service> Services { get; set; }
+        public DateTime dateTime { get; set; }
     }
 }
