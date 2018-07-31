@@ -541,11 +541,11 @@ namespace flutterwave_sub.Controllers
             ViewBag.interval = new SelectList(interval, "Value", "Text");
         }
 
-        async Task<CardPayDetails> generateCardPayDetailsAsync(ApplicationUser user, CardDetails details)
+        async Task<CardPayDetails_1> generateCardPayDetailsAsync(ApplicationUser user, CardDetails details)
         {
             Fingerprinter.Generate(Request.ServerVariables);
 
-            var _details = new CardPayDetails
+            var _details = new CardPayDetails_1
             {
                 email = user.Email,
                 firstname = user.FirstName,

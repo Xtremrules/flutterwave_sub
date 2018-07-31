@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Web;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace flutterwave_sub.JsonModel
 {
@@ -16,15 +12,15 @@ namespace flutterwave_sub.JsonModel
         public string expirymonth { get; set; }
         [Required]
         public string expiryyear { get; set; }
-        [Required]
-        public string pin { get; set; }
-
         public int serviceId { get; set; }
     }
-    public class CardPayDetails : CardDetails
+
+    /// <summary>
+    /// This will require pin and suggested_auth
+    /// </summary>
+    public class CardPayDetails_1 : CardDetails
     {
         public string PBFPubKey { get; set; }
-        public const string suggested_auth = "PIN";
         public string amount { get; set; }
         public string email { get; set; }
         public string phonenumber { get; set; }
@@ -49,5 +45,11 @@ namespace flutterwave_sub.JsonModel
         /// Plan ID
         /// </summary>
         public string payment_plan { get; set; }
+    }
+
+   public class CardPayDetails_Complete: CardPayDetails_1
+    {
+        public string pin { get; set; }
+        public string suggested_auth { get; set; }
     }
 }
