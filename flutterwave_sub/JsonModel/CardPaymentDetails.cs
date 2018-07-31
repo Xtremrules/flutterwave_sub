@@ -18,6 +18,8 @@ namespace flutterwave_sub.JsonModel
         public string expiryyear { get; set; }
         [Required]
         public string pin { get; set; }
+
+        public int serviceId { get; set; }
     }
     public class CardPayDetails : CardDetails
     {

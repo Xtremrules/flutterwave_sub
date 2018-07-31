@@ -15,6 +15,8 @@ using Microsoft.Owin.Security;
 using flutterwave_sub.Models;
 using System.Collections.Generic;
 using flutterwave_sub.JsonModel;
+using flutterwave_sub.Encryption;
+using Newtonsoft.Json;
 
 namespace flutterwave_sub.Controllers
 {
@@ -28,6 +30,8 @@ namespace flutterwave_sub.Controllers
         private ApplicationDbContext db = new ApplicationDbContext();
 
         static HttpClient client = new HttpClient();
+
+        RavePaymentDataEncryption rEn = new RavePaymentDataEncryption();
 
         public AccountController()
         {
@@ -249,6 +253,47 @@ namespace flutterwave_sub.Controllers
             return View(serviceModel);
         }
 
+        [Authorize(Roles = "tenat")]
+        public async Task<ActionResult> Subscribe(int? sId)
+        {
+            if (!sId.HasValue)
+                return RedirectToAction("tenat");
+            var service = await db.Services.FindAsync(sId.Value);
+            if (service == null)
+            {
+                addError();
+                return RedirectToAction("tenat");
+            }
+            ViewBag.Service = service;
+            return View(new CardDetails { serviceId = sId.Value });
+        }
+
+        [Authorize(Roles = "tenat"), HttpPost, ValidateAntiForgeryToken]
+        public async Task<ActionResult> Subscribe(CardDetails model)
+        {
+            if (!ModelState.IsValid)
+            {
+                addError();
+                return View(model);
+            }
+            var user = await UserManager.FindByNameAsync(User.Identity.Name);
+            if(user == null)
+            {
+                addError();
+                return RedirectToAction("tenat");
+            }
+
+            var details = await generateCardPayDetailsAsync(user, model);
+            var stringDetails = JsonConvert.SerializeObject(details);
+
+            var key = rEn.GetEncryptionKey(Credentials.API_Secret_Key);
+            var cipher = rEn.EncryptData(key, stringDetails);
+
+            var reponse = await SubscribeAsync(cipher);
+
+            return View(model);
+        }
+
         #endregion
 
         #region Managers
@@ -442,6 +487,17 @@ namespace flutterwave_sub.Controllers
             return await response.Content.ReadAsAsync<PaymentPlanObject>();
         }
 
+        static async Task<String> SubscribeAsync(string cipher)
+        {
+            var url = "https://ravesandboxapi.flutterwave.com/flwv3-pug/getpaidx/api/charge";
+            client.DefaultRequestHeaders.Accept.Add(
+            new MediaTypeWithQualityHeaderValue("application/json"));
+
+            HttpResponseMessage response = await client.PostAsJsonAsync(url, 
+                new { PBFPubKey = Credentials.API_Public_Key, client = cipher, alg = "3DES-24" });
+            return await response.Content.ReadAsStringAsync();
+        }
+
         #endregion
 
         #region Admin
@@ -480,6 +536,40 @@ namespace flutterwave_sub.Controllers
             interval.Add(new SelectListItem { Text = "quarterly", Value = "quarterly" });
             interval.Add(new SelectListItem { Text = "yearly", Value = "yearly" });
             ViewBag.interval = new SelectList(interval, "Value", "Text");
+        }
+
+        async Task<CardPayDetails> generateCardPayDetailsAsync(ApplicationUser user, CardDetails details)
+        {
+            Fingerprinter.Generate(Request.ServerVariables);
+
+            var _details = new CardPayDetails
+            {
+                email = user.Email,
+                firstname = user.FirstName,
+                lastname = user.LastName,
+                PBFPubKey = Credentials.API_Public_Key,
+                cardno = details.cardno,
+                cvv = details.cvv,
+                expirymonth = details.expirymonth,
+                expiryyear = details.expiryyear,
+                pin = details.pin,
+            };
+
+            var sQuery = "Select * from Services where Id = @p0";
+
+            var service = await db.Services.SqlQuery(sQuery, details.serviceId).FirstOrDefaultAsync();
+
+            if (service == null)
+                throw new NullReferenceException("Service");
+
+            _details.amount = service.Amount.ToString();
+            _details.payment_plan = service.PlanId.ToString();
+            _details.charge_type = "recurring-" + service.Interval;
+            _details.IP = Fingerprinter.IP;
+            _details.device_fingerprint = Fingerprinter.FingerPrint;
+            _details.txRef = "FWXX-" + Guid.NewGuid().ToString().Replace("-", "");
+
+            return _details;
         }
 
         #region Not Needed

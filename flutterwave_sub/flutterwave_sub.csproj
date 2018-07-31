@@ -207,6 +207,7 @@
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>
+    <Compile Include="JsonModel\AuthResponse.cs" />
     <Compile Include="JsonModel\Bank.cs" />
     <Compile Include="JsonModel\CardPaymentDetails.cs" />
     <Compile Include="JsonModel\PaymentPlan.cs" />
@@ -288,6 +289,7 @@
     <Content Include="Views\Account\Manager.cshtml" />
     <Content Include="Views\Account\Addservice.cshtml" />
     <Content Include="Views\Account\Service.cshtml" />
+    <Content Include="Views\Account\Subscribe.cshtml" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\" />
