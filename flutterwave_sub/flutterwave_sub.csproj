@@ -204,6 +204,7 @@
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>
+    <Compile Include="JsonModel\Bank.cs" />
     <Compile Include="JsonModel\PaymentPlan.cs" />
     <Compile Include="Migrations\201807301907499_initial.cs" />
     <Compile Include="Migrations\201807301907499_initial.Designer.cs">
