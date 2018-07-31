@@ -201,10 +201,13 @@
     <Compile Include="Controllers\HomeController.cs" />
     <Compile Include="Controllers\ManageController.cs" />
     <Compile Include="Credentials.cs" />
+    <Compile Include="Encryption\IPaymentDataEncryption.cs" />
+    <Compile Include="Encryption\RavePaymentDataEncryption.cs" />
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>
     <Compile Include="JsonModel\Bank.cs" />
+    <Compile Include="JsonModel\CardPaymentDetails.cs" />
     <Compile Include="JsonModel\PaymentPlan.cs" />
     <Compile Include="Migrations\201807301907499_initial.cs" />
     <Compile Include="Migrations\201807301907499_initial.Designer.cs">
