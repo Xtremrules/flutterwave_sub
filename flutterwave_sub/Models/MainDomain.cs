@@ -48,7 +48,11 @@ namespace flutterwave_sub.Models
 
         public string flwRef { get; set; }
 
+        public string raveRef { get; set; }
+
         public DateTime dateTime { get; set; }
+
+        public string status { get; set; }
 
         public int ServiceId { get; set; }
         public virtual Service Service { get; set; }
