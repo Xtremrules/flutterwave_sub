@@ -172,6 +172,7 @@ namespace flutterwave_sub.Controllers
                             {
                                 ManagerId = model.ManagerId,
                                 ApplicationUserId = user.Id,
+                                dateTime = DateTime.Now,
                             };
                             try
                             {
@@ -343,6 +344,7 @@ namespace flutterwave_sub.Controllers
                             {
                                 AccountName = model.AccountName,
                                 ApplicationUserId = user.Id,
+                                dateTime = DateTime.Now,
                             };
                             db.Managers.Add(manager);
                             try
@@ -452,6 +454,7 @@ namespace flutterwave_sub.Controllers
                     ManagerId = model.ManagerId,
                     Interval = data.data.interval,
                     Name = data.data.name,
+                    dateTime = DateTime.Now,
                 };
 
                 db.Services.Add(plan);
