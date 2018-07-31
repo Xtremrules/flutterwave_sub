@@ -2,17 +2,19 @@
 
 @{
     ViewBag.Title = "Manager";
+    int? mid = (int)ViewBag.ManagerId;
+    int count = 0;
 }
 
 <h2>Manager Services</h2>
-
+@Html.Partial("_alerts")
 <p>
-    @Html.ActionLink("Create New Service", "Addservice")
+    @Html.ActionLink("Create New Service", "Addservice", new { mid = mid })
 </p>
 <table class="table">
     <tr>
         <th>
-            @Html.DisplayNameFor(model => model.PlanId)
+            @Html.DisplayName("No")
         </th>
         <th>
             @Html.DisplayNameFor(model => model.Name)
@@ -23,41 +25,28 @@
         <th>
             @Html.DisplayNameFor(model => model.Interval)
         </th>
-        <th>
-            @Html.DisplayNameFor(model => model.Plan_token)
-        </th>
-        <th>
-            @Html.DisplayNameFor(model => model.ManagerId)
-        </th>
         <th></th>
     </tr>
 
-@foreach (var item in Model) {
-    <tr>
-        <td>
-            @Html.DisplayFor(modelItem => item.PlanId)
-        </td>
-        <td>
-            @Html.DisplayFor(modelItem => item.Name)
-        </td>
-        <td>
-            @Html.DisplayFor(modelItem => item.Amount)
-        </td>
-        <td>
-            @Html.DisplayFor(modelItem => item.Interval)
-        </td>
-        <td>
-            @Html.DisplayFor(modelItem => item.Plan_token)
-        </td>
-        <td>
-            @Html.DisplayFor(modelItem => item.ManagerId)
-        </td>
-        <td>
-            @Html.ActionLink("Edit", "Edit", new { id=item.Id }) |
-            @Html.ActionLink("Details", "Details", new { id=item.Id }) |
-            @Html.ActionLink("Delete", "Delete", new { id=item.Id })
-        </td>
-    </tr>
-}
+    @foreach (var item in Model)
+    {
+        <tr>
+            <td>
+                @(++count)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.Name)
+            </td>
+            <td>
+                &#x20a6 @Html.DisplayFor(modelItem => item.Amount)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.Interval)
+            </td>
+            <td>
+                @Html.ActionLink("Details", "Service", new { sid = item.Id })
+            </td>
+        </tr>
+    }
 
 </table>

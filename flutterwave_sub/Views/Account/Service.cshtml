@@ -1,7 +1,9 @@
-﻿@model flutterwave_sub.Models.Service
+﻿@using flutterwave_sub.Models;
+@model Service
 
 @{
     ViewBag.Title = "Service";
+    IEnumerable<ApplicationUser> user = Model.Vendors.Select(x => x.ApplicationUser);
 }
 
 <h2>Service</h2>
@@ -10,13 +12,6 @@
     <h4>Service</h4>
     <hr />
     <dl class="dl-horizontal">
-        <dt>
-            @Html.DisplayNameFor(model => model.PlanId)
-        </dt>
-
-        <dd>
-            @Html.DisplayFor(model => model.PlanId)
-        </dd>
 
         <dt>
             @Html.DisplayNameFor(model => model.Name)
@@ -42,25 +37,51 @@
             @Html.DisplayFor(model => model.Interval)
         </dd>
 
-        <dt>
-            @Html.DisplayNameFor(model => model.Plan_token)
-        </dt>
-
-        <dd>
-            @Html.DisplayFor(model => model.Plan_token)
-        </dd>
-
-        <dt>
-            @Html.DisplayNameFor(model => model.ManagerId)
-        </dt>
-
-        <dd>
-            @Html.DisplayFor(model => model.ManagerId)
-        </dd>
-
     </dl>
 </div>
 <p>
-    @Html.ActionLink("Edit", "Edit", new { id = Model.Id }) |
-    @Html.ActionLink("Back to List", "Index")
+    @Html.ActionLink("Back to Manager", "manager")
 </p>
+
+<p>
+    Your subcriped tenats
+</p>
+
+<table class="table">
+    <tr>
+        <th>
+            @Html.DisplayNameFor(model => model.PlanId)
+        </th>
+        <th>
+            @Html.DisplayName("First Name")
+        </th>                   
+        <th>                  
+            @Html.DisplayName("Last Name")
+        </th>                 
+        <th>                  
+            @Html.DisplayName("Email")
+        </th>                 
+        <th>                  
+            @Html.DisplayName("Phone Number")
+        </th>   
+    </tr>
+
+    @foreach (var item in user)
+    {
+        <tr>
+            <td>
+                @Html.DisplayFor(modelItem => item.FirstName)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.LastName)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.Email)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.PhoneNumber)
+            </td>
+        </tr>
+    }
+
+</table>
