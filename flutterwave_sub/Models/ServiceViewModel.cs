@@ -6,6 +6,8 @@ namespace flutterwave_sub.Models
     {
         public int Id { get; set; }
         public int PlanId { get; set; }
+        public decimal amount { get; set; }
+        public string interval { get; set; }
         public string name { get; set; }
         public bool active { get; set; }
     }

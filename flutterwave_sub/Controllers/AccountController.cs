@@ -225,9 +225,9 @@ namespace flutterwave_sub.Controllers
             var manager = await db.Managers.FirstOrDefaultAsync(x => x.Id == mid.Value);
             ViewBag.Manager = manager;
 
-            var sQuery = "Select * from Services where ManagerId = @p0";
+            var sQuery = "Select * from Services where ManagerId = @p0 order by Id desc";
 
-            var vsQuery = " Select * from Services where Id in ( Select ServiceId from VendorService Where VendorId In" +
+            var vsQuery = "Select * from Services where Id in ( Select ServiceId from VendorService Where VendorId In" +
                 "( Select Id from Vendors Where ApplicationUserId = @p0 ))";
 
             var services = await db.Services.SqlQuery(sQuery, mid.Value).ToListAsync();
@@ -243,6 +243,8 @@ namespace flutterwave_sub.Controllers
                     Id = x.Id,
                     name = x.Name,
                     PlanId = x.PlanId,
+                    interval = x.Interval,
+                    amount = x.Amount,
                 };
                 if (tenatServises.Any(y => y.Id == x.Id))
                     sm.active = true;
@@ -266,6 +268,7 @@ namespace flutterwave_sub.Controllers
                 addError();
                 return RedirectToAction("tenat");
             }
+            Session.Add("Service", service);
             ViewBag.Service = service;
             Session.Add("ServiceId", service.Id);
             return View(new CardDetails());
@@ -293,7 +296,7 @@ namespace flutterwave_sub.Controllers
             var key = rEn.GetEncryptionKey(Credentials.API_Secret_Key);
             var cipher = rEn.EncryptData(key, stringDetails);
 
-            var stringReponse = await SubscribeAsync(cipher);
+            var stringReponse = await PostWithEncryptionAsync(cipher, EndPoints.charge);
 
             if (stringReponse.Contains("success") && stringReponse.Contains("AUTH_SUGGESTION"))
             {
@@ -344,13 +347,61 @@ namespace flutterwave_sub.Controllers
 
             }
 
+            if (stringReponse.Contains("Card Bin"))
+                addError("Wrong card details");
+            if (stringReponse.Contains("charge could not"))
+                addError("Charge Declined");
+
+            ViewBag.Service = (Service)Session["Service"];
+
             return View(model);
         }
 
         [Authorize(Roles = "tenat"), HttpPost, ValidateAntiForgeryToken]
         public async Task<ActionResult> Subscribe_otp(string otp)
         {
-            var x = (CardPayDetails_NotComplete)Session["CardDetails"];
+            var subs = (Subs)Session["Sub"];
+            var validate = new { PBFPubKey = Credentials.API_Public_Key, otp, transaction_reference = subs.flwRef };
+            var stringResponse = await CreatePostAsync(validate, EndPoints.validateCharge);
+
+            if (stringResponse.Contains("Complete"))
+            {
+                var verifyD = new
+                {
+                    txref = subs.txRef,
+                    SECKEY = Credentials.API_Secret_Key
+                };
+                var verifyResponse = await CreatePostAsync(verifyD, EndPoints.verifyCharge);
+
+                if (verifyResponse.Contains("Fetched"))
+                {
+                    //var res = JObject.Parse(verifyResponse);
+                    //var data = (JObject)res["data"];
+                    //var card = (JObject)data["card"];
+                    //var card_tokens = (JArray)card["card_tokens"];
+                    ////var a = card_tokens
+                    subs.status = "success";
+                    subs.dateTime = DateTime.Now;
+
+                    var query = "Insert Into VendorService(VendorId, ServiceId) Values (@p0,@p1)";
+
+                    try
+                    {
+                        db.Entry(subs).State = EntityState.Added;
+                        var result = await db.Database.ExecuteSqlCommandAsync(query, subs.VendorId, subs.ServiceId);
+
+                        addSuccess("Successfully subscribed");
+                        return RedirectToAction("tenat");
+                    }
+                    catch (Exception ex)
+                    {
+
+                        throw;
+                    }
+                }
+            }
+
+            return View();
         }
 
         [Authorize(Roles = "tenat"), HttpPost, ValidateAntiForgeryToken]
@@ -385,9 +436,22 @@ namespace flutterwave_sub.Controllers
             var key = rEn.GetEncryptionKey(Credentials.API_Secret_Key);
             var cipher = rEn.EncryptData(key, stringDetails);
 
-            var stringResponse = await SubscribeAsync(cipher);
+            var stringResponse = await PostWithEncryptionAsync(cipher, EndPoints.charge);
 
-            addSubToSession(stringResponse);
+            if (stringResponse.Contains("success"))
+            {
+                addSubToSession(stringResponse);
+
+                var data = (JObject)Session["data"];
+                var chargeResponseMessage = data["chargeResponseMessage"].ToString();
+
+                if (stringResponse.Contains("OTP"))
+                {
+                    addSuccess(chargeResponseMessage);
+                    return View("Subscribe_otp");
+                }
+            }
+
 
             return View(pin);
         }
@@ -500,7 +564,8 @@ namespace flutterwave_sub.Controllers
 
             ViewBag.ManagerId = mid.Value;
 
-            var services = await db.Services.Where(x => x.ManagerId == mid.Value).ToListAsync();
+            var services = await db.Services.Where(x => x.ManagerId == mid.Value)
+                .OrderByDescending(x => x.Id).ToListAsync();
 
             return View(services);
         }
@@ -550,7 +615,7 @@ namespace flutterwave_sub.Controllers
                     model.amount
                 };
 
-                var dataString = await CreatePostAsync(modelX);
+                var dataString = await CreatePostAsync(modelX, EndPoints.paymentPlan);
                 var data = JsonConvert.DeserializeObject<PaymentPlanObject>(dataString);
                 var plan = new Service
                 {
@@ -581,32 +646,24 @@ namespace flutterwave_sub.Controllers
 
         #region API Endpoint
 
-        static async Task<string> CreatePostAsync(dynamic model)
+        static async Task<string> CreatePostAsync(dynamic model, string url)
         {
-            var url = "v2/gpx/paymentplans/create";
-            var baseUrl = "https://ravesandboxapi.flutterwave.com";
-            //client.BaseAddress = new Uri(baseUrl);
             client.DefaultRequestHeaders.Accept.Add(
             new MediaTypeWithQualityHeaderValue("application/json"));
-
-            //HttpResponseMessage response = await client.PostAsJsonAsync(
-            //    baseUrl + "/" + url, model);
-
-            HttpResponseMessage response = await client.PostAsJsonAsync(baseUrl + "/" + url, (object)model);
+            HttpResponseMessage response = await client.PostAsJsonAsync(url, (object)model);
             response.EnsureSuccessStatusCode();
 
             return await response.Content.ReadAsStringAsync();
         }
 
-        static async Task<String> SubscribeAsync(string cipher)
+        static async Task<String> PostWithEncryptionAsync(string cipher, string url)
         {
-            var url = "https://ravesandboxapi.flutterwave.com/flwv3-pug/getpaidx/api/charge";
             client.DefaultRequestHeaders.Accept.Add(
             new MediaTypeWithQualityHeaderValue("application/json"));
 
             HttpResponseMessage response = await client.PostAsJsonAsync(url,
                 new { PBFPubKey = Credentials.API_Public_Key, client = cipher, alg = "3DES-24" });
-            return await response.Content.ReadAsStringAsync(); //ReadAsAsync<AuthResponseObject>();
+            return await response.Content.ReadAsStringAsync();
         }
 
         #endregion
