@@ -12,7 +12,6 @@ namespace flutterwave_sub.JsonModel
         public string expirymonth { get; set; }
         [Required]
         public string expiryyear { get; set; }
-        public int serviceId { get; set; }
     }
 
     /// <summary>
@@ -25,6 +24,8 @@ namespace flutterwave_sub.JsonModel
         public string email { get; set; }
         public string phonenumber { get; set; }
         public string firstname { get; set; }
+        public string country { get; set; }// = "NG";
+        public string currency { get; set; }// = "NGN";
         public string lastname { get; set; }
         public string IP { get; set; }
         /// <summary>
@@ -50,10 +51,10 @@ namespace flutterwave_sub.JsonModel
     public class CardPayDetails_Pin : CardPayDetails_NotComplete
     {
         public string pin { get; set; }
-        public const string suggested_auth = "PIN";
+        public string suggested_auth { get; set; }// "PIN";
     }
 
-    public class CardPayDetails_AVS_VBVSECURECODE: CardPayDetails_NotComplete
+    public class CardPayDetails_AVS_VBVSECURECODE : CardPayDetails_NotComplete
     {
         public const string suggested_auth = "AVS_VBVSECURECODE";
         public string billingzip { get; set; }

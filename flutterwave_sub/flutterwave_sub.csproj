@@ -299,6 +299,7 @@
     <Content Include="Views\Account\Service.cshtml" />
     <Content Include="Views\Account\Subscribe.cshtml" />
     <Content Include="Views\Account\Subscribe_pin.cshtml" />
+    <Content Include="Views\Account\Subscribe_otp.cshtml" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\" />

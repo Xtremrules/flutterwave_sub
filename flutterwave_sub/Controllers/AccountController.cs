@@ -267,7 +267,8 @@ namespace flutterwave_sub.Controllers
                 return RedirectToAction("tenat");
             }
             ViewBag.Service = service;
-            return View(new CardDetails { serviceId = sId.Value });
+            Session.Add("ServiceId", service.Id);
+            return View(new CardDetails());
         }
 
         [Authorize(Roles = "tenat"), HttpPost, ValidateAntiForgeryToken]
@@ -279,7 +280,7 @@ namespace flutterwave_sub.Controllers
                 return View(model);
             }
             var user = await UserManager.FindByNameAsync(User.Identity.Name);
-            if(user == null)
+            if (user == null)
             {
                 addError();
                 return RedirectToAction("tenat");
@@ -292,61 +293,101 @@ namespace flutterwave_sub.Controllers
             var key = rEn.GetEncryptionKey(Credentials.API_Secret_Key);
             var cipher = rEn.EncryptData(key, stringDetails);
 
-            var reponse = await SubscribeAsync(cipher);
-            var res = JObject.Parse(reponse);
-            var data = (JObject)res["data"];
-            var suggested_auth = data["suggested_auth"].ToString();
-            if (suggested_auth == "PIN")
+            var stringReponse = await SubscribeAsync(cipher);
+
+            if (stringReponse.Contains("success") && stringReponse.Contains("AUTH_SUGGESTION"))
             {
-                return View("Subscribe_pin");
-            }
-            if(suggested_auth == "NOAUTH_INTERNATIONAL")
-            {
-                return View("Subscribe_no_auth_inter");
-            }
-            if(suggested_auth == "AVS_VBVSECURECODE")
-            {
-                return View("Subscribe_avs_vbv_code");
+                if (stringReponse.Contains("PIN"))
+                {
+                    return View("Subscribe_pin");
+                }
+
+                if (stringReponse.Contains("NOAUTH_INTERNATIONAL"))
+                {
+                    return View("Subscribe_no_auth_inter");
+                }
+                if (stringReponse.Contains("AVS_VBVSECURECODE"))
+                {
+                    return View("Subscribe_avs_vbv_code");
+                }
             }
 
-            return View("Subscribe_pin");
+            if (stringReponse.Contains("success") && stringReponse.Contains("V-COMP"))
+            {
+                addSubToSession(stringReponse);
+
+                var data = (JObject)Session["data"];
+                var amount = Convert.ToDecimal(data["amount"].ToString());
+                var charged_amount = Convert.ToDecimal(data["charged_amount"].ToString());
+                if (charged_amount < amount)
+                {
+                    addSuccess();
+                    return View(model);
+                }
+                var chargeResponseCode = data["chargeResponseCode"].ToString();
+                var authModelUsed = data["authModelUsed"].ToString();
+                var chargeResponseMessage = data["chargeResponseMessage"].ToString();
+
+                if (chargeResponseCode == "02")
+                {
+                    if (authModelUsed.Contains("OTP") || authModelUsed.Contains("PIN"))
+                    {
+                        addSuccess(chargeResponseMessage);
+                        return View("Subscribe_otp");
+                    }
+                    if (authModelUsed.Contains("VBVSECURECODE"))
+                    {
+                        addSuccess(chargeResponseMessage);
+                        return View("Subscribe_vbv");
+                    }
+                }
+
+            }
+
+            return View(model);
+        }
+
+        [Authorize(Roles = "tenat"), HttpPost, ValidateAntiForgeryToken]
+        public async Task<ActionResult> Subscribe_otp(string otp)
+        {
+            var x = (CardPayDetails_NotComplete)Session["CardDetails"];
         }
 
         [Authorize(Roles = "tenat"), HttpPost, ValidateAntiForgeryToken]
         public async Task<ActionResult> Subscribe_pin(string pin)
         {
-            CardPayDetails_Pin cardDetails = (CardPayDetails_Pin)Session["CardDetails"];
-            cardDetails.pin = pin;
+            CardPayDetails_NotComplete x = (CardPayDetails_NotComplete)Session["CardDetails"];
+            var cardDetails = new CardPayDetails_Pin
+            {
+                amount = x.amount,
+                cardno = x.cardno,
+                charge_type = x.charge_type,
+                cvv = x.cvv,
+                device_fingerprint = x.device_fingerprint,
+                email = x.email,
+                expirymonth = x.expirymonth,
+                expiryyear = x.expiryyear,
+                firstname = x.firstname,
+                IP = x.IP,
+                lastname = x.lastname,
+                payment_plan = x.payment_plan,
+                PBFPubKey = x.PBFPubKey,
+                phonenumber = x.phonenumber,
+                pin = pin,
+                txRef = x.txRef,
+                currency = "NGN",
+                country = "NG",
+                suggested_auth = "PIN"
+            };
 
             var stringDetails = JsonConvert.SerializeObject(cardDetails);
 
             var key = rEn.GetEncryptionKey(Credentials.API_Secret_Key);
             var cipher = rEn.EncryptData(key, stringDetails);
 
-            var reponse = await SubscribeAsync(cipher);
+            var stringResponse = await SubscribeAsync(cipher);
 
-            var res = JObject.Parse(reponse);
-            var data = (JObject)res["data"];
-
-            var orderRef = data["orderRef"].ToString();
-            var flwRef = data["flwRef"].ToString();
-            var chargeResponseCode = Convert.ToInt32(data["chargeResponseCode"].ToString());
-            var authModelUsed = data["authModelUsed"].ToString();
-
-            var userid = User.Identity.GetUserId();
-            var query = "select Id from vendors where applicationuserid = @p0";
-            var vId = await db.Database.SqlQuery<int>(query, userid).FirstAsync();
-
-            var sub = new Subs
-            {
-                VendorId = vId,
-                ServiceId = cardDetails.serviceId,
-                txRef = cardDetails.txRef,
-                flwRef = flwRef,
-                orderRef = orderRef,
-            };
-
-            Session.Add("sub", sub);
+            addSubToSession(stringResponse);
 
             return View(pin);
         }
@@ -501,7 +542,16 @@ namespace flutterwave_sub.Controllers
             model.seckey = Credentials.API_Secret_Key;
             try
             {
-                var data = await CreatePaymentPlanAsync(model);
+                var modelX = new
+                {
+                    model.name,
+                    model.interval,
+                    model.seckey,
+                    model.amount
+                };
+
+                var dataString = await CreatePostAsync(modelX);
+                var data = JsonConvert.DeserializeObject<PaymentPlanObject>(dataString);
                 var plan = new Service
                 {
                     PlanId = data.data.id,
@@ -531,7 +581,7 @@ namespace flutterwave_sub.Controllers
 
         #region API Endpoint
 
-        static async Task<PaymentPlanObject> CreatePaymentPlanAsync(ServiceAddModel model)
+        static async Task<string> CreatePostAsync(dynamic model)
         {
             var url = "v2/gpx/paymentplans/create";
             var baseUrl = "https://ravesandboxapi.flutterwave.com";
@@ -539,11 +589,13 @@ namespace flutterwave_sub.Controllers
             client.DefaultRequestHeaders.Accept.Add(
             new MediaTypeWithQualityHeaderValue("application/json"));
 
-            HttpResponseMessage response = await client.PostAsJsonAsync(
-                baseUrl + "/" + url, model);
+            //HttpResponseMessage response = await client.PostAsJsonAsync(
+            //    baseUrl + "/" + url, model);
+
+            HttpResponseMessage response = await client.PostAsJsonAsync(baseUrl + "/" + url, (object)model);
             response.EnsureSuccessStatusCode();
 
-            return await response.Content.ReadAsAsync<PaymentPlanObject>();
+            return await response.Content.ReadAsStringAsync();
         }
 
         static async Task<String> SubscribeAsync(string cipher)
@@ -552,7 +604,7 @@ namespace flutterwave_sub.Controllers
             client.DefaultRequestHeaders.Accept.Add(
             new MediaTypeWithQualityHeaderValue("application/json"));
 
-            HttpResponseMessage response = await client.PostAsJsonAsync(url, 
+            HttpResponseMessage response = await client.PostAsJsonAsync(url,
                 new { PBFPubKey = Credentials.API_Public_Key, client = cipher, alg = "3DES-24" });
             return await response.Content.ReadAsStringAsync(); //ReadAsAsync<AuthResponseObject>();
         }
@@ -570,14 +622,53 @@ namespace flutterwave_sub.Controllers
 
         #endregion
 
+        void addSubToSession(string stringResponse)
+        {
+            var res = JObject.Parse(stringResponse);
+            var data = (JObject)res["data"];
+
+            var orderRef = data["orderRef"].ToString();
+            var flwRef = data["flwRef"].ToString();
+            var chargeResponseCode = Convert.ToInt32(data["chargeResponseCode"].ToString());
+            var authModelUsed = data["authModelUsed"].ToString();
+            var txRef = data["txRef"].ToString();
+            var userid = User.Identity.GetUserId();
+            var query = "select Id from vendors where applicationuserid = @p0";
+            var vId = db.Database.SqlQuery<int>(query, userid).FirstOrDefault();
+
+            var serviceId = (int)Session["ServiceId"];
+
+            var sub = new Subs
+            {
+                VendorId = vId,
+                ServiceId = serviceId,
+                txRef = txRef,
+                flwRef = flwRef,
+                orderRef = orderRef,
+            };
+
+            Session.Add("Sub", sub);
+            Session.Add("data", data);
+        }
+
         void addError()
         {
             TempData["error"] = "error occured, contact the admin";
         }
 
+        void addError(string message)
+        {
+            TempData["error"] = message;
+        }
+
         void addSuccess()
         {
             TempData["success"] = "action successful";
+        }
+
+        void addSuccess(string message)
+        {
+            TempData["success"] = message;
         }
 
         async Task PopulateManagerIdAsync()
@@ -607,15 +698,20 @@ namespace flutterwave_sub.Controllers
                 firstname = user.FirstName,
                 lastname = user.LastName,
                 PBFPubKey = Credentials.API_Public_Key,
-                cardno = details.cardno.Replace(" ","").Trim(),
+                cardno = details.cardno.Replace(" ", "").Trim(),
                 cvv = details.cvv,
                 expirymonth = details.expirymonth,
                 expiryyear = details.expiryyear,
+                phonenumber = user.PhoneNumber,
+                currency = "NGN",
+                country = "NG"
             };
 
             var sQuery = "Select * from Services where Id = @p0";
 
-            var service = await db.Services.SqlQuery(sQuery, details.serviceId).FirstOrDefaultAsync();
+            var ServiceId = (int)Session["ServiceId"];
+
+            var service = await db.Services.SqlQuery(sQuery, ServiceId).FirstOrDefaultAsync();
 
             if (service == null)
                 throw new NullReferenceException("Service");
@@ -624,8 +720,8 @@ namespace flutterwave_sub.Controllers
             _details.payment_plan = service.PlanId.ToString();
             _details.charge_type = "recurring-" + service.Interval;
             _details.IP = Fingerprinter.IP;
-            _details.device_fingerprint = Fingerprinter.FingerPrint;
-            _details.txRef = "FWXX-" + Guid.NewGuid().ToString().Replace("-", "");
+            _details.device_fingerprint = Fingerprinter.FingerPrint.ToUpper();
+            _details.txRef = "FWXX-" + Guid.NewGuid().ToString().ToUpper().Replace("-", "");
 
             return _details;
         }
