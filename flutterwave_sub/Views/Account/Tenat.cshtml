@@ -17,10 +17,13 @@ else
     <table class="table">
         <tr>
             <th>
-                @Html.DisplayNameFor(model => model.PlanId)
+                @Html.DisplayNameFor(model => model.name)
             </th>
             <th>
-                @Html.DisplayNameFor(model => model.name)
+                @Html.DisplayNameFor(model => model.amount)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.interval)
             </th>
             <th>
                 @Html.DisplayNameFor(model => model.active)
@@ -32,16 +35,26 @@ else
         {
             <tr>
                 <td>
-                    @Html.DisplayFor(modelItem => item.PlanId)
+                    @Html.DisplayFor(modelItem => item.name)
                 </td>
                 <td>
-                    @Html.DisplayFor(modelItem => item.name)
+                    &#x20a6 @Html.DisplayFor(modelItem => item.amount)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.interval)
                 </td>
                 <td>
                     @Html.DisplayFor(modelItem => item.active)
                 </td>
                 <td>
-                    @Html.ActionLink("Subcribe", "Subscribe", new { sId = item.Id })
+                    @if (!item.active)
+                    {
+                        @Html.ActionLink("Subcribe", "Subscribe", new { sId = item.Id })
+                    }
+                    else
+                    {
+                        @: Unsubscribe
+                    }
                 </td>
             </tr>
         }
