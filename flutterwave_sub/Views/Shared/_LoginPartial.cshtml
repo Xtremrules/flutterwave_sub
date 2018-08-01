@@ -17,7 +17,7 @@
                 }
                 else
                 {
-                    @Html.ActionLink("Hello " + User.Identity.GetUserName() + "!", "manage", "account", routeValues: null, htmlAttributes: new { title = "manager" })
+                    @Html.ActionLink("Hello " + User.Identity.GetUserName() + "!", "manager", "account", routeValues: null, htmlAttributes: new { title = "manager" })
                 }
             </li>
             <li><a href="javascript:document.getElementById('logoutForm').submit()">Log off</a></li>
