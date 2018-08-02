@@ -46,7 +46,6 @@ namespace flutterwave_sub.Tests
             var en = new RavePaymentDataEncryption();
             var cardDetails = Get_Card_Details();
             var seckey = Credentials.API_Secret_Key;
-            var pubkey = Credentials.API_Public_Key;
 
             // Act
             var key = en.GetEncryptionKey(seckey);
