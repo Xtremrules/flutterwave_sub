@@ -54,9 +54,9 @@ namespace flutterwave_sub.JsonModel
         public string suggested_auth { get; set; }// "PIN";
     }
 
-    public class CardPayDetails_AVS_VBVSECURECODE : CardPayDetails_NotComplete
+    public class CardPayDetails_Billing : CardPayDetails_NotComplete
     {
-        public const string suggested_auth = "AVS_VBVSECURECODE";
+        public string suggested_auth { get; set; } //"AVS_VBVSECURECODE" || "NOAUTH_INTERNATIONAL";
         public string billingzip { get; set; }
         public string billingcity { get; set; }
         public string billingaddress { get; set; }
@@ -64,13 +64,17 @@ namespace flutterwave_sub.JsonModel
         public string billingcountry { get; set; }
     }
 
-    public class CardPayDetails_NOAUTH_INTERNATIONAL : CardPayDetails_NotComplete
+    public class BillingDetails
     {
-        public const string suggested_auth = "NOAUTH_INTERNATIONAL";
+        [Required]
         public string billingzip { get; set; }
+        [Required]
         public string billingcity { get; set; }
+        [Required]
         public string billingaddress { get; set; }
+        [Required]
         public string billingstate { get; set; }
+        [Required]
         public string billingcountry { get; set; }
     }
 }

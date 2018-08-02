@@ -301,6 +301,8 @@
     <Content Include="Views\Account\Subscribe.cshtml" />
     <Content Include="Views\Account\Subscribe_pin.cshtml" />
     <Content Include="Views\Account\Subscribe_otp.cshtml" />
+    <Content Include="Views\Account\Subscribe_vbv.cshtml" />
+    <Content Include="Views\Account\Subscribe_auth_inter.cshtml" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\" />

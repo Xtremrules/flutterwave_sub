@@ -268,6 +268,9 @@ namespace flutterwave_sub.Controllers
                 addError();
                 return RedirectToAction("tenat");
             }
+
+            Session.Clear();
+
             Session.Add("Service", service);
             ViewBag.Service = service;
             Session.Add("ServiceId", service.Id);
@@ -289,6 +292,7 @@ namespace flutterwave_sub.Controllers
                 return RedirectToAction("tenat");
             }
 
+
             var details = await generateCardPayDetailsAsync(user, model);
             Session.Add("CardDetails", details);
             var stringDetails = JsonConvert.SerializeObject(details);
@@ -307,11 +311,13 @@ namespace flutterwave_sub.Controllers
 
                 if (stringReponse.Contains("NOAUTH_INTERNATIONAL"))
                 {
-                    return View("Subscribe_no_auth_inter");
+                    Session.Add("type", "NOAUTH_INTERNATIONAL");
+                    return View("Subscribe_auth_inter");
                 }
                 if (stringReponse.Contains("AVS_VBVSECURECODE"))
                 {
-                    return View("Subscribe_avs_vbv_code");
+                    Session.Add("type", "AVS_VBVSECURECODE");
+                    return View("Subscribe_vbv");
                 }
             }
 
@@ -340,6 +346,7 @@ namespace flutterwave_sub.Controllers
                     }
                     if (authModelUsed.Contains("VBVSECURECODE"))
                     {
+                        Session.Add("type", "AVS_VBVSECURECODE");
                         addSuccess(chargeResponseMessage);
                         return View("Subscribe_vbv");
                     }
@@ -347,14 +354,183 @@ namespace flutterwave_sub.Controllers
 
             }
 
-            if (stringReponse.Contains("Card Bin"))
-                addError("Wrong card details");
-            if (stringReponse.Contains("charge could not"))
-                addError("Charge Declined");
+
+            var res = JObject.Parse(stringReponse);
+            var message = res["message"].ToString();
+            addError(message);
 
             ViewBag.Service = (Service)Session["Service"];
 
             return View(model);
+        }
+
+        [Authorize(Roles = "tenat"), HttpPost, ValidateAntiForgeryToken]
+        public async Task<ActionResult> Subscribe_auth_inter(BillingDetails model)
+        {
+            if (!ModelState.IsValid)
+            {
+                ModelState.AddModelError("", "Check your Input");
+                return View(model);
+            }
+            var x = (CardPayDetails_NotComplete)Session["CardDetails"];
+
+            var cardDetails_Billings = new CardPayDetails_Billing
+            {
+                amount = x.amount,
+                cardno = x.cardno,
+                charge_type = x.charge_type,
+                country = "NG",
+                billingaddress = model.billingaddress,
+                billingcity = model.billingcity,
+                billingcountry = model.billingcountry,
+                billingstate = model.billingstate,
+                billingzip = model.billingzip,
+                currency = "NGN",
+                cvv = x.cvv,
+                device_fingerprint = x.device_fingerprint,
+                email = x.email,
+                expirymonth = x.expirymonth,
+                expiryyear = x.expiryyear,
+                firstname = x.firstname,
+                IP = x.IP,
+                suggested_auth = (string)Session["type"],
+                lastname = x.lastname,
+                payment_plan = x.payment_plan,
+                PBFPubKey = x.PBFPubKey,
+                phonenumber = x.phonenumber,
+                txRef = x.txRef
+            };
+
+            var stringDetails = JsonConvert.SerializeObject(cardDetails_Billings);
+
+            var key = rEn.GetEncryptionKey(Credentials.API_Secret_Key);
+            var cipher = rEn.EncryptData(key, stringDetails);
+
+            var stringResponse = await PostWithEncryptionAsync(cipher, EndPoints.charge);
+
+            if (stringResponse.Contains("success") && stringResponse.Contains("V-COMP"))
+            {
+                var res = JObject.Parse(stringResponse);
+                var data = (JObject)res["data"];
+                var authurl = data["authurl"].ToString();
+                Session.Add("authurl", authurl);
+
+                return View();
+            }
+            if (stringResponse.Contains("error"))
+            {
+                var res = JObject.Parse(stringResponse);
+                var message = res["message"].ToString();
+                addError(message);
+                return RedirectToAction("tenat");
+            }
+
+            return View(model);
+        }
+
+        [Authorize(Roles = "tenat"), HttpPost, ValidateAntiForgeryToken]
+        public async Task<ActionResult> Subscribe_vbv(BillingDetails model)
+        {
+            if (!ModelState.IsValid)
+            {
+                ModelState.AddModelError("", "Check your Input");
+                return View(model);
+            }
+            var x = (CardPayDetails_NotComplete)Session["CardDetails"];
+
+            var authModelUsed = Session["type"].ToString();
+
+            var cardDetails_Billings = new CardPayDetails_Billing
+            {
+                amount = x.amount,
+                cardno = x.cardno,
+                charge_type = x.charge_type,
+                country = "NG",
+                billingaddress = model.billingaddress,
+                billingcity = model.billingcity,
+                billingcountry = model.billingcountry,
+                billingstate = model.billingstate,
+                billingzip = model.billingzip,
+                currency = "NGN",
+                cvv = x.cvv,
+                device_fingerprint = x.device_fingerprint,
+                email = x.email,
+                expirymonth = x.expirymonth,
+                expiryyear = x.expiryyear,
+                firstname = x.firstname,
+                IP = x.IP,
+                lastname = x.lastname,
+                payment_plan = x.payment_plan,
+                PBFPubKey = x.PBFPubKey,
+                phonenumber = x.phonenumber,
+                txRef = x.txRef
+            };
+
+            if (authModelUsed.Contains("VBV"))
+                cardDetails_Billings.suggested_auth = "AVS_VBVSECURECODE";
+            else
+                cardDetails_Billings.suggested_auth = "NOAUTH_INTERNATIONAL";
+
+            var stringDetails = JsonConvert.SerializeObject(cardDetails_Billings);
+
+            var key = rEn.GetEncryptionKey(Credentials.API_Secret_Key);
+            var cipher = rEn.EncryptData(key, stringDetails);
+
+            var stringResponse = await PostWithEncryptionAsync(cipher, EndPoints.charge);
+
+            if (stringResponse.Contains("success") && stringResponse.Contains("V-COMP"))
+            {
+                var res = JObject.Parse(stringResponse);
+                var data = (JObject)res["data"];
+                var authurl = data["authurl"].ToString();
+                Session.Add("authurl", authurl);
+
+                return View();
+            }
+
+            return View(model);
+        }
+
+        [Authorize(Roles = "tenat"), HttpPost, ValidateAntiForgeryToken]
+        public async Task<ActionResult> submit_vbv(string otp)
+        {
+            var subs = (Subs)Session["Sub"];
+
+            var verifyD = new
+            {
+                txref = subs.txRef,
+                SECKEY = Credentials.API_Secret_Key
+            };
+            var verifyResponse = await CreatePostAsync(verifyD, EndPoints.verifyCharge);
+
+            if (verifyResponse.Contains("Fetched"))
+            {
+                //var res = JObject.Parse(verifyResponse);
+                //var data = (JObject)res["data"];
+                //var card = (JObject)data["card"];
+                //var card_tokens = (JArray)card["card_tokens"];
+                ////var a = card_tokens
+                subs.status = "success";
+                subs.dateTime = DateTime.Now;
+
+                var query = "Insert Into VendorService(VendorId, ServiceId) Values (@p0,@p1)";
+
+                try
+                {
+                    db.Entry(subs).State = EntityState.Added;
+                    var result = await db.Database.ExecuteSqlCommandAsync(query, subs.VendorId, subs.ServiceId);
+
+                    addSuccess("Successfully subscribed");
+                    return RedirectToAction("tenat");
+                }
+                catch (Exception ex)
+                {
+
+                    throw;
+                }
+            }
+
+            return RedirectToAction("tenat");
         }
 
         [Authorize(Roles = "tenat"), HttpPost, ValidateAntiForgeryToken]
@@ -444,16 +620,58 @@ namespace flutterwave_sub.Controllers
 
                 var data = (JObject)Session["data"];
                 var chargeResponseMessage = data["chargeResponseMessage"].ToString();
+                var chargeResponseCode = data["chargeResponseCode"].ToString();
 
                 if (stringResponse.Contains("OTP"))
                 {
                     addSuccess(chargeResponseMessage);
                     return View("Subscribe_otp");
                 }
+                if (chargeResponseCode == "00")
+                {
+                    var subs = (Subs)Session["Sub"];
+
+                    var verifyD = new
+                    {
+                        txref = subs.txRef,
+                        SECKEY = Credentials.API_Secret_Key
+                    };
+                    var verifyResponse = await CreatePostAsync(verifyD, EndPoints.verifyCharge);
+
+                    if (verifyResponse.Contains("Fetched"))
+                    {
+                        subs.status = "success";
+                        subs.dateTime = DateTime.Now;
+
+                        var query = "Insert Into VendorService(VendorId, ServiceId) Values (@p0,@p1)";
+
+                        try
+                        {
+                            db.Entry(subs).State = EntityState.Added;
+                            var result = await db.Database.ExecuteSqlCommandAsync(query, subs.VendorId, subs.ServiceId);
+
+                            addSuccess("Successfully subscribed");
+                            return RedirectToAction("tenat");
+                        }
+                        catch (Exception ex)
+                        {
+
+                            throw;
+                        }
+                    }
+                }
+            }
+            if (stringResponse.Contains("error"))
+            {
+                var res = JObject.Parse(stringResponse);
+                var message = res["message"].ToString();
+                addError(message);
+                return RedirectToAction("tenat");
             }
 
+            addError();
 
-            return View(pin);
+            return View("Subscribe_pin");
         }
 
         #endregion
