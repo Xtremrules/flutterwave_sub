@@ -1,4 +1,4 @@
-# Flutterwave Subcribtion
+# Flutterwave Subscription
 Customer can easily subscribe to services of marchants, irrespective of their location
 
 # How to use
